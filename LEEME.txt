@@ -12,6 +12,16 @@ CÓMO USARLA
 
   La selección y el orden quedan guardados en el navegador.
 
+AGREGAR UNA LÁMINA NUEVA
+  1. Copiá el archivo .html en esta misma carpeta.
+  2. Abrí "linker.html" y tocá "Escanear carpeta".
+  3. Elegí ESTA carpeta (la que tiene linker.html). La lámina aparece al final,
+     marcada, y queda guardada para la próxima vez.
+
+  También acepta láminas dentro de una subcarpeta de esta carpeta.
+  Si la lámina no trae "deck-bridge.js", se ve igual, pero las teclas apretadas
+  con el foco adentro no pasan al deck; usá los botones del borde inferior.
+
 ATAJOS EN PRESENTACIÓN
   ← →        pantalla anterior / siguiente
   Espacio    ocultar o mostrar los controles
@@ -25,3 +35,5 @@ IMPORTANTE
   • Las fotos de las láminas están incluidas dentro de cada HTML.
   • Los modelos 3D (.glb) que elegiste en el editor viven en el navegador de esta
     máquina, no en esta carpeta. En otra computadora hay que volver a elegirlos.
+  • La lista inicial vive en "slides.js". No hace falta tocarla: el escaneo
+    agrega lo nuevo sin editar nada.

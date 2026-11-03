@@ -354,13 +354,15 @@
     <p class="panel-kicker">ESETE · Modernización en las Ayudas de Instrucción Técnica</p>
     <h1>Concentrador de láminas</h1>
     <p class="panel-sub">
-      Elegí qué documentos entran a la presentación y en qué orden. La selección queda guardada en este navegador.
+      Elegí qué documentos entran a la presentación y en qué orden. Para sumar una lámina, copiá su HTML en esta carpeta y usá «Escanear carpeta».
     </p>
     <p class="panel-note">
       Las láminas 3D cargan <strong>three.js desde internet</strong>. Los modelos y las fotos que ya configuraste viven en este navegador, no en la carpeta.
     </p>
 
     <div class="panel-tools">
+      <button class="tool" id="scanBtn" type="button">Escanear carpeta</button>
+      <input id="dirInput" type="file" webkitdirectory directory multiple hidden>
       <button class="tool" id="allBtn" type="button">Todos</button>
       <button class="tool" id="noneBtn" type="button">Ninguna</button>
       <button class="tool" id="resetBtn" type="button">Orden original</button>
@@ -441,59 +443,88 @@
   </section>
 </template>
 
+<script src="slides.js"></script>
 <script>
 (function(){
   'use strict';
 
-  /* ── Catálogo fijo: el orden canónico es el orden de archivo. ── */
-  var SLIDES = [
-    { label:'Inicio',              src:'1-inicio.html' },
-    { label:'El caso ESETE',       src:'2-Proyecto.html' },
-    { label:'El problema',         src:'3-Comparativa.html' },
-    { label:'¿Funciona la RV?',    src:'4-Evidencia.html' },
-    { label:'Segundo eje: Web 3D', src:'5-web3d.html' },
-    { label:'Errores humanos',     src:'6-erroreshumanos.html' },
-    { label:'Demostración 3D',     src:'7-demoweb3.html' },
-    { label:'AET',                 src:'8-AET.html' },
-    { label:'Precedente militar',  src:'9-otras fuerzas.html' },
-    { label:'Limitaciones',        src:'10-desafios.html' },
-    { label:'Propuesta',           src:'11-Propuesta y próximos pasos.html' }
-  ];
-  var N = SLIDES.length;
-  var STORE = 'esete:linker:deck:v1';
+  /* ── Catálogo: slides.js + lo que encuentre «Escanear carpeta». ── */
+  var STORE = 'esete:linker:deck:v2';
+  var labels = {};              /* archivo -> nombre visible */
+  var state = null;
 
-  /* ── Estado persistido: portada, orden y selección. ── */
-  var state = { cover:true, order:range(N), on:range(N) };
+  function pretty(file){
+    var s = String(file).replace(/^.*\//, '').replace(/\.html?$/i, '').replace(/[-_]+/g, ' ').trim();
+    if (!s) return String(file);
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
 
-  function range(n){
+  function seedEntries(){
     var out = [];
-    for (var i = 0; i < n; i++) out.push(i);
+    var base = window.ESETE_SLIDES;
+    if (Array.isArray(base)) {
+      base.forEach(function(e){
+        if (!e || !e.file) return;
+        var f = String(e.file);
+        if (out.some(function(x){ return x.file === f; })) return;
+        out.push({ file:f, label:e.label ? String(e.label) : pretty(f) });
+      });
+    }
     return out;
   }
-  function isIndexList(a){
-    if (!Array.isArray(a) || a.length > N) return false;
-    var seen = {};
-    for (var i = 0; i < a.length; i++) {
-      if (typeof a[i] !== 'number' || a[i] % 1 !== 0 || a[i] < 0 || a[i] >= N || seen[a[i]]) return false;
-      seen[a[i]] = true;
-    }
-    return true;
+
+  function defaultState(){
+    var order = seedEntries().map(function(e){ return e.file; });
+    return { cover:true, order:order, on:order.slice(), extra:[] };
   }
+
   function load(){
+    state = defaultState();
     try {
       var raw = localStorage.getItem(STORE);
       if (!raw) return;
       var s = JSON.parse(raw);
       if (!s || typeof s !== 'object') return;
-      if (isIndexList(s.order) && s.order.length === N) state.order = s.order.slice();
-      if (isIndexList(s.on)) state.on = s.on.slice();
-      state.cover = s.cover !== false;
+      if (Array.isArray(s.extra)) {
+        s.extra.forEach(function(e){
+          if (!e || !e.file) return;
+          state.extra.push({ file:String(e.file), label:e.label ? String(e.label) : pretty(e.file) });
+        });
+      }
+      if (Array.isArray(s.order)) state.order = s.order.filter(function(f){ return typeof f === 'string'; });
+      if (Array.isArray(s.on)) state.on = s.on.filter(function(f){ return typeof f === 'string'; });
+      if (typeof s.cover === 'boolean') state.cover = s.cover;
     } catch (e) { /* private mode or blocked storage: keep defaults */ }
   }
+
   function save(){
     try {
       localStorage.setItem(STORE, JSON.stringify(state));
     } catch (e) { /* nothing to do */ }
+  }
+
+  /* Une semilla, archivos descubiertos y lo guardado, sin perder el orden elegido. */
+  function rebuild(){
+    labels = {};
+    seedEntries().forEach(function(e){ labels[e.file] = e.label; });
+    (state.extra || []).forEach(function(e){
+      if (!labels[e.file]) labels[e.file] = e.label;
+    });
+
+    var order = [];
+    state.order.forEach(function(f){
+      if (labels[f] && order.indexOf(f) < 0) order.push(f);
+    });
+    Object.keys(labels).forEach(function(f){
+      if (order.indexOf(f) < 0) order.push(f);
+    });
+    state.order = order;
+
+    var on = [];
+    state.on.forEach(function(f){
+      if (labels[f] && on.indexOf(f) < 0) on.push(f);
+    });
+    state.on = on;
   }
 
   /* ── Panel ── */
@@ -502,9 +533,11 @@
   var countEl   = document.getElementById('count');
   var presentBtn= document.getElementById('presentBtn');
   var coverChk  = document.getElementById('coverChk');
+  var scanBtn   = document.getElementById('scanBtn');
+  var dirInput  = document.getElementById('dirInput');
 
   function selected(){
-    return state.order.filter(function(i){ return state.on.indexOf(i) >= 0; });
+    return state.order.filter(function(f){ return state.on.indexOf(f) >= 0; });
   }
   function total(){
     return selected().length + (state.cover ? 1 : 0);
@@ -513,13 +546,13 @@
 
   function render(){
     rowsEl.textContent = '';
-    state.order.forEach(function(idx, pos){
-      var s = SLIDES[idx];
-      var on = state.on.indexOf(idx) >= 0;
+    state.order.forEach(function(file, pos){
+      var on = state.on.indexOf(file) >= 0;
+      var name = labels[file] || file;
 
       var li = document.createElement('li');
       li.className = 'row' + (on ? '' : ' is-off');
-      li.dataset.i = String(idx);
+      li.dataset.file = file;
 
       var lab = document.createElement('label');
       lab.className = 'row-main';
@@ -527,8 +560,8 @@
       chk.type = 'checkbox';
       chk.checked = on;
       chk.addEventListener('change', function(){
-        var at = state.on.indexOf(idx);
-        if (chk.checked && at < 0) state.on.push(idx);
+        var at = state.on.indexOf(file);
+        if (chk.checked && at < 0) state.on.push(file);
         if (!chk.checked && at >= 0) state.on.splice(at, 1);
         save();
         li.classList.toggle('is-off', !chk.checked);
@@ -542,9 +575,9 @@
       var txt = document.createElement('span');
       txt.className = 'row-text';
       var b = document.createElement('b');
-      b.textContent = s.label;
+      b.textContent = name;
       var sm = document.createElement('small');
-      sm.textContent = s.src;
+      sm.textContent = file;
       txt.appendChild(b);
       txt.appendChild(sm);
 
@@ -554,8 +587,8 @@
 
       var move = document.createElement('div');
       move.className = 'row-move';
-      move.appendChild(moveBtn(idx, -1, pos === 0, 'Subir ' + s.label));
-      move.appendChild(moveBtn(idx, 1, pos === state.order.length - 1, 'Bajar ' + s.label));
+      move.appendChild(moveBtn(file, -1, pos === 0, 'Subir ' + name));
+      move.appendChild(moveBtn(file, 1, pos === state.order.length - 1, 'Bajar ' + name));
 
       li.appendChild(lab);
       li.appendChild(move);
@@ -564,23 +597,25 @@
     paintCount();
   }
 
-  function moveBtn(idx, dir, disabled, label){
+  function moveBtn(file, dir, disabled, label){
     var b = document.createElement('button');
     b.type = 'button';
-    b.dataset.i = String(idx);
+    b.dataset.file = file;
     b.dataset.move = String(dir);
     b.textContent = dir < 0 ? '▲' : '▼';
     b.disabled = disabled;
     b.setAttribute('aria-label', label);
     b.addEventListener('click', function(){
-      var at = state.order.indexOf(idx);
+      var at = state.order.indexOf(file);
       var to = at + dir;
-      if (to < 0 || to >= state.order.length) return;
+      if (at < 0 || to < 0 || to >= state.order.length) return;
       state.order[at] = state.order[to];
-      state.order[to] = idx;
+      state.order[to] = file;
       save();
       render();
-      var again = rowsEl.querySelector('button[data-i="' + idx + '"][data-move="' + dir + '"]');
+      var rowEl = rowsEl.children[to];
+      if (!rowEl) return;
+      var again = rowEl.querySelectorAll('.row-move button')[dir < 0 ? 0 : 1];
       if (again) again.focus();
     });
     return b;
@@ -599,17 +634,72 @@
   }
 
   document.getElementById('allBtn').addEventListener('click', function(){
-    state.on = range(N); save(); render();
+    state.on = state.order.slice(); save(); render();
   });
   document.getElementById('noneBtn').addEventListener('click', function(){
     state.on = []; save(); render();
   });
   document.getElementById('resetBtn').addEventListener('click', function(){
-    state.order = range(N); save(); render();
+    var base = seedEntries().map(function(e){ return e.file; });
+    var rest = state.order.filter(function(f){ return base.indexOf(f) < 0; });
+    state.order = base.concat(rest);
+    save(); render();
     toast('Orden original restaurado');
   });
   coverChk.addEventListener('change', function(){
     state.cover = coverChk.checked; save(); paintCount();
+  });
+
+  /* ── Escanear carpeta: cualquier .html que esté al lado de este archivo ── */
+  scanBtn.addEventListener('click', function(){ dirInput.click(); });
+
+  dirInput.addEventListener('change', function(){
+    var files = Array.prototype.slice.call(dirInput.files || []);
+    dirInput.value = '';
+    if (!files.length) return;
+
+    var paths = files.map(function(f){ return String(f.webkitRelativePath || f.name || '').replace(/\\/g, '/'); });
+
+    /* Con una carpeta real, cada ruta arranca con el nombre de la carpeta elegida.
+       Se exige que esa carpeta sea la que contiene linker.html. */
+    var prefix = '';
+    if (paths.length && paths.every(function(p){ return p.indexOf('/') > 0; })) {
+      prefix = paths[0].split('/')[0] + '/';
+      if (!paths.some(function(p){ return p === prefix + 'linker.html'; })) {
+        toast('Elegí la carpeta que contiene linker.html');
+        return;
+      }
+    }
+
+    var found = paths
+      .filter(function(p){ return p.indexOf(prefix) === 0; })
+      .map(function(p){ return p.slice(prefix.length); })
+      .filter(function(p){ return p && /\.html?$/i.test(p); })
+      .filter(function(p){ return p.toLowerCase() !== 'linker.html'; })
+      .filter(function(p){ return p.charAt(0) !== '_'; })
+      .sort(function(a, b){
+        if (a.indexOf('/') < 0 && b.indexOf('/') >= 0) return -1;
+        if (b.indexOf('/') < 0 && a.indexOf('/') >= 0) return 1;
+        return a.localeCompare(b, 'es', { numeric:true, sensitivity:'base' });
+      });
+
+    var added = [];
+    found.forEach(function(f){
+      if (labels[f]) return;
+      labels[f] = pretty(f);
+      state.extra.push({ file:f, label:labels[f] });
+      state.order.push(f);
+      state.on.push(f);
+      added.push(f);
+    });
+
+    if (!added.length) {
+      toast(found.length ? 'No hay láminas nuevas' : 'No encontré archivos .html en esa carpeta');
+      return;
+    }
+    save();
+    render();
+    toast(added.length === 1 ? 'Lámina agregada: ' + labels[added[0]] : added.length + ' láminas agregadas');
   });
 
   /* ── Presentación ── */
@@ -785,8 +875,8 @@
 
     screens = [];
     if (state.cover) screens.push({ label:'Portada' });
-    selected().forEach(function(i){
-      screens.push({ label: SLIDES[i].label, src: SLIDES[i].src });
+    selected().forEach(function(f){
+      screens.push({ label: labels[f] || f, src: f });
     });
     LAST = screens.length - 1;
     cur = 0;
@@ -885,6 +975,7 @@
 
   /* ── Arranque ── */
   load();
+  rebuild();
   coverChk.checked = state.cover;
   render();
 })();
