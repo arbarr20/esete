@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de mantenimiento: tapón detector de virutas</title>
+<style>
+:root{--bg:#10151b;--panel:rgba(20,27,36,.9);--tx:#e8eef5;--mu:#8fa0b3;--ac:#f5a524;--ok:#3ecf8e;--bad:#ff6b6b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151b}}
+:root[data-theme="dark"]{--bg:#10151b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--tx);font:14px system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+canvas{display:block;touch-action:none}
+.p{position:absolute;background:var(--panel);border:1px solid #2b3846;border-radius:12px;padding:10px 12px}
+#steps{top:10px;left:10px;width:225px;max-width:44vw}
+#steps h1{font-size:13px;margin:0 0 6px;color:var(--ac)}
+#steps ol{margin:0;padding-left:18px;color:var(--mu);font-size:12px;line-height:1.5}
+#steps li.cur{color:var(--tx);font-weight:600}#steps li.done{color:var(--ok)}
+#side{position:absolute;top:10px;right:10px;width:220px;max-width:46vw;display:flex;flex-direction:column;gap:8px}
+#side .p{position:static;font-size:12px;color:var(--mu)}
+#bar{height:22px;background:#243040;border-radius:6px;position:relative;margin-top:5px;overflow:hidden}
+#zone{position:absolute;left:0;width:17.5%;top:0;bottom:0;background:rgba(255,255,255,.35);border:2px solid #fff;box-sizing:border-box;border-radius:3px}
+#fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--ac)}
+#card{color:var(--tx)!important;display:none}
+code{background:#243040;padding:1px 5px;border-radius:4px;color:var(--ac)}
+button{background:#1f2a37;color:var(--tx);border:1px solid #35475a;border-radius:8px;padding:7px 10px;font:inherit;cursor:pointer;margin-top:6px}
+#msg{left:10px;right:10px;font-size:13px;min-height:20px;bottom:max(10px,env(safe-area-inset-bottom,0px))}
+#fin,#tcont{display:none;position:absolute;right:10px;bottom:76px;background:var(--ok);color:#06210f;font-weight:700;font-size:15px;padding:12px 20px;border:0;border-radius:10px}
+#tcont{background:var(--ac)}
+#rep{left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,92vw);max-height:84vh;overflow:auto;display:none;font-size:13px}
+#rep h2{margin:0 0 8px;color:var(--ok)}#rep li{margin:4px 0}
+</style></head><body>
+<div id="steps" class="p"><h1>Instalación tapón detector de virutas (MGB)</h1><ol id="ol"></ol><p style="margin:8px 0 0;font-size:11px;color:var(--mu)">Toca una pieza para inspeccionarla. Puedes girarla (botones, Q/E/W/S/A/D, rueda mientras la sostienes o clic derecho) y dejarla en el aire. Rueda del mouse sin pieza en la mano: zoom.</p><div><button id="zi">+ Acercar</button> <button id="zo">- Alejar</button> <button id="rst" onclick="location.reload()">↻ Reiniciar</button><br><button id="bplay" onclick="location.hash='auto';location.reload()">▶ Reproducir</button> <button id="bman" onclick="if(auto){location.hash='';location.reload()}else msg('Modo manual activo.')">✋ Manual</button></div></div>
+<div id="side"><div class="p" id="hud" style="display:none">Torque: <b id="tq">0.0</b> N·m<br>Valor de la llave: <b id="pv">35</b> N·m<div id="bar"><div id="fill"></div><div id="zone"></div></div></div>
+<div class="p" id="card"></div></div>
+<div id="msg" class="p"></div><button id="fin" onclick="finish()">✔ Terminar</button>
+<div id="rep" class="p"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=i=>document.getElementById(i),V=(x,y,z)=>new THREE.Vector3(x,y,z),PI=Math.PI;
+const R=new THREE.WebGLRenderer({antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));
+R.toneMapping=THREE.ACESFilmicToneMapping;R.toneMappingExposure=1.15;R.outputEncoding=THREE.sRGBEncoding;R.shadowMap.enabled=true;R.shadowMap.type=THREE.PCFSoftShadowMap;
+document.body.prepend(R.domElement);
+const S=new THREE.Scene();
+{const bc=document.createElement('canvas');bc.width=4;bc.height=256;const bg=bc.getContext('2d'),gd=bg.createLinearGradient(0,0,0,256);gd.addColorStop(0,'#6b7d92');gd.addColorStop(1,'#1c242d');bg.fillStyle=gd;bg.fillRect(0,0,4,256);const bt2=new THREE.CanvasTexture(bc);bt2.encoding=THREE.sRGBEncoding;S.background=bt2}
+const C=new THREE.PerspectiveCamera(45,1,.1,100);
+try{const ec=document.createElement('canvas');ec.width=512;ec.height=256;const eg=ec.getContext('2d'),gr=eg.createLinearGradient(0,0,0,256);
+ gr.addColorStop(0,'#e6eef8');gr.addColorStop(.5,'#9aabbf');gr.addColorStop(.52,'#59606a');gr.addColorStop(1,'#33373d');eg.fillStyle=gr;eg.fillRect(0,0,512,256);
+ eg.fillStyle='#fff';eg.fillRect(50,30,100,40);eg.fillRect(300,20,130,50);eg.fillRect(200,70,50,18);
+ const et=new THREE.CanvasTexture(ec);et.mapping=THREE.EquirectangularReflectionMapping;et.encoding=THREE.sRGBEncoding;
+ S.environment=new THREE.PMREMGenerator(R).fromEquirectangular(et).texture}catch(e){}
+S.add(new THREE.HemisphereLight(0xffffff,0x778899,.9));
+const fl0=new THREE.DirectionalLight(0xcfe0ff,.7);fl0.position.set(-6,5,9);S.add(fl0);
+const dl=new THREE.DirectionalLight(0xffffff,1.7);dl.position.set(5,10,7);dl.castShadow=true;dl.shadow.mapSize.set(2048,2048);
+Object.assign(dl.shadow.camera,{left:-11,right:11,top:10,bottom:-10,far:40});dl.shadow.bias=-.0004;S.add(dl);
+// Materiales (referencias reales: carcasa MGB pintada gris-oliva sobre magnesio; herrajes aeronáuticos cadmiados;
+// O-ring NBR negro; imán de detector gris oscuro con polo de cobre; alambre inox 302/304 brillante;
+// llaves cromadas con empuñadura de goma negra; alicates de acero forjado con mangos de goma de color)
+const mat=(c,m,r,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,metalness:m,roughness:r},o));
+const nz=(()=>{const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d'),d=g.createImageData(256,256);for(let i=0;i<d.data.length;i+=4){d.data[i]=d.data[i+1]=d.data[i+2]=Math.random()*255;d.data[i+3]=255}g.putImageData(d,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(4,4);return t})();
+const mPaint=new THREE.MeshPhysicalMaterial({color:0x5d6b52,metalness:.2,roughness:.6,clearcoat:.25,clearcoatRoughness:.5,bumpMap:nz,bumpScale:.5}),
+ mMach=mat(0xb9c0c7,.75,.3),mCad=mat(0xc3b27c,.65,.45),mSteel=mat(0xc9d0d7,.6,.7,{roughnessMap:nz}),mChrome=mat(0xeef2f6,.8,.15),
+ mCopper=mat(0xb86f43,.8,.35),mMag=mat(0x3a3d42,.8,.4),mGold=mat(0xd9aa3e,.85,.3),mInsul=mat(0x151515,0,.5),
+ mRub=mat(0x141414,0,.35),mGrip=mat(0x16181a,0,.85),mRed=mat(0xc0281f,0,.5),mYel=mat(0xe0b000,0,.5),mDark=mat(0x050505,0,1),
+ mWire=mat(0xf0f3f6,.8,.25),mWhite=mat(0xf4f4f4,0,.4),mFlange=mat(0x46515c,0,.6),
+ mGlass=new THREE.MeshPhysicalMaterial({color:0x9fd0e0,metalness:0,roughness:.1,transparent:true,opacity:.45}),
+ mWood=mat(0x9a7348,0,.8,{bumpMap:nz,bumpScale:.4}),mFoam=mat(0x1e2226,0,1);
+// Geometrías
+const hexGeo=(r,h)=>{const s=new THREE.Shape();for(let i=0;i<6;i++){const a=i*PI/3;i?s.lineTo(r*Math.cos(a),r*Math.sin(a)):s.moveTo(r*Math.cos(a),r*Math.sin(a))}
+ const g=new THREE.ExtrudeGeometry(s,{depth:h,bevelEnabled:true,bevelSize:.03,bevelThickness:.03,bevelSegments:3});g.rotateX(-PI/2);return g};
+const threadGeo=(r,len)=>{const p=[new THREE.Vector2(0,-len),new THREE.Vector2(r-.07,-len),new THREE.Vector2(r-.035,-len+.03)],n=16,dy=len/n;for(let i=0;i<n;i++)p.push(new THREE.Vector2(r-.035,-len+i*dy+.03),new THREE.Vector2(r,-len+i*dy+dy*.5+.03));p.push(new THREE.Vector2(r-.03,0),new THREE.Vector2(0,0));return new THREE.LatheGeometry(p,48)};
+const rrect=(w,h,r)=>{const s=new THREE.Shape(),x=-w/2,y=-h/2;s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s};
+const add=(g,geo,m,x,y,z)=>{const o=new THREE.Mesh(geo,m);o.position.set(x||0,y||0,z||0);g.add(o);return o};
+const cylX=(r,l,n)=>new THREE.CylinderGeometry(r,r,l,n||20).rotateZ(PI/2);
+// Banco, bandejas y soportes
+add(S,new THREE.BoxGeometry(15.4,.2,7.6),mWood,0,-1.1,.8);
+add(S,new THREE.BoxGeometry(3.4,.05,4.6),mFoam,-5.4,-.975,.85);add(S,new THREE.BoxGeometry(3.2,.05,4.6),mFoam,5,-.975,.85);
+[[-6.4,1.2],[-5.3,1.2],[-4.2,1.2]].forEach(p=>{if(p[0]==-6.4)add(S,new THREE.BoxGeometry(.5,.48,.35),mat(0x30363c,0,.9),p[0],-.71,p[1])});
+function label(txt,x,z){const c=document.createElement('canvas');c.width=256;c.height=64;const g=c.getContext('2d');g.fillStyle='#aab6c3';g.font='bold 34px sans-serif';g.textAlign='center';g.fillText(txt,128,44);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;const m=new THREE.Mesh(new THREE.PlaneGeometry(2.4,.6).rotateX(-PI/2),new THREE.MeshBasicMaterial({map:t,transparent:true}));m.position.set(x,-.945,z);S.add(m)}
+label('HERRAMIENTAS',-5.4,3.05);label('PIEZAS',5,2.9);
+const BC=V(.6,-.885,3.1),BIN_TOP=-.77,BRI=.4,BRO=.46;
+function binCollide(p){const dx=p.x-BC.x,dz=p.z-BC.z,h=Math.hypot(dx,dz);
+ if(p.y>=BIN_TOP+.04){binIn=h<BRI-.08;return}
+ if(binIn){if(h>BRI-.08){const k=(BRI-.08)/h;p.x=BC.x+dx*k;p.z=BC.z+dz*k}}
+ else if(h<BRO+.12){const ux=h>1e-3?dx/h:1,uz=h>1e-3?dz/h:0;p.x=BC.x+ux*(BRO+.12);p.z=BC.z+uz*(BRO+.12)}}
+{const g=new THREE.Group(),mb=mat(0xc0281f,.1,.5,{side:THREE.DoubleSide});
+ g.add(new THREE.Mesh(new THREE.CylinderGeometry(.45,.4,.23,40,1,true),mb));
+ const bot=new THREE.Mesh(new THREE.CircleGeometry(.4,32).rotateX(-PI/2),mDark);bot.position.y=-.1;g.add(bot);
+ const rim=new THREE.Mesh(new THREE.TorusGeometry(.45,.03,8,40).rotateX(PI/2),mat(0xe8e8e8,.3,.4));rim.position.y=.115;g.add(rim);
+ const c=document.createElement('canvas');c.width=128;c.height=64;const x=c.getContext('2d');x.fillStyle='#fff';x.font='bold 48px sans-serif';x.textAlign='center';x.fillText('FOD',64,50);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;
+ const lb=new THREE.Mesh(new THREE.PlaneGeometry(.34,.15),new THREE.MeshBasicMaterial({map:t,transparent:true}));lb.position.set(0,0,.435);g.add(lb);
+ g.position.copy(BC);S.add(g)}
+const ITEMS={};
+function G(id,name,pn,state,home,drag,rot){const g=new THREE.Group();g.userData={id,name,pn,state,home:home.clone(),drag,locked:false,inspected:false,rot:rot||0};g.position.copy(home);g.rotation.y=rot||0;S.add(g);ITEMS[id]=g;return g}
+const SEAT=1.12,HOV=SEAT+.7;
+// Carcasa del reductor
+const hs=G('housing','Carcasa reductor principal (puerto de drenaje)','MGB-2104-017','Rosca del puerto limpia, sin daños',V(0,0,0),false);
+{const g=new THREE.ExtrudeGeometry(rrect(5,3.6,.3),{depth:1.95,bevelEnabled:true,bevelSize:.05,bevelThickness:.05,bevelSegments:3});g.rotateX(-PI/2);add(hs,g,mPaint,0,-1,0);
+ const f=new THREE.ExtrudeGeometry(rrect(5.25,3.85,.35),{depth:.1,bevelEnabled:true,bevelSize:.03,bevelThickness:.03,bevelSegments:2});f.rotateX(-PI/2);add(hs,f,mPaint,0,-.15,0);
+ add(hs,new THREE.CylinderGeometry(.8,.85,.12,48),mMach,0,1.06,0);add(hs,new THREE.CircleGeometry(.3,32).rotateX(-PI/2),mDark,0,SEAT+.005,0);
+ add(hs,new THREE.TorusGeometry(.32,.03,8,32).rotateX(PI/2),mSteel,0,SEAT+.01,0);
+ [-2,-1.4,-.5,.5,1.4,2].forEach(x=>add(hs,new THREE.BoxGeometry(.1,1.5,.14),mPaint,x,.1,1.85));
+ add(hs,new THREE.CylinderGeometry(.27,.27,.08,32).rotateX(PI/2),mMach,-1,.1,1.9);add(hs,new THREE.CylinderGeometry(.2,.2,.04,32).rotateX(PI/2),mGlass,-1,.1,1.95);
+ add(hs,new THREE.BoxGeometry(.6,.32,.03),mSteel,.95,.2,1.87);add(hs,new THREE.BoxGeometry(.5,.2,.04),mWhite,.95,.2,1.88);
+ [-1].forEach(s=>{add(hs,new THREE.BoxGeometry(.55,.4,1.2),mPaint,s*2.75,-.7,0);add(hs,new THREE.CircleGeometry(.15,24).rotateX(-PI/2),mDark,s*2.78,-.49,0)});
+ add(hs,hexGeo(.22,.12),mMach,-1.5,1.0,.7);add(hs,new THREE.CylinderGeometry(.12,.12,.08,16),mMach,-1.5,1.16,.7);
+ [[-2.1,-1.3],[-2.1,1.3],[2.1,-1.3],[2.1,1.3],[-1.2,1.3],[1.2,-1.3]].forEach(p=>add(hs,hexGeo(.17,.1),mCad,p[0],1.02,p[1]))}
+// Perno de anclaje (cadmiado, cabeza perforada)
+const bt=G('bolt','Perno de anclaje, cabeza perforada','BT-3307-12D','Cabeza íntegra, agujero sin rebabas',V(1.9,SEAT,0),false);
+add(bt,hexGeo(.42,.26),mCad,0,0,0);add(bt,new THREE.CylinderGeometry(.5,.5,.03,32),mCad,0,-.02,0);add(bt,cylX(.06,.64),mDark,0,.15,.2);add(bt,new THREE.CylinderGeometry(.08,.08,.02,16),mDark,0,.3,0);
+// O-ring (NBR negro)
+const or=G('oring','O-ring de sellado','OR-0118-N70','Sin cortes ni deformación',V(5,-.89,-.4),true);
+add(or,new THREE.TorusGeometry(.3,.06,20,48).rotateX(PI/2),mRub);
+// Tapón detector de virutas (cuerpo acero, imán con polo de cobre, conector aislante)
+const pl=G('plug','Tapón detector de virutas','CD-5530-02','Rosca limpia, sin virutas ni daños',V(5,-.4,1),true);
+add(pl,hexGeo(.46,.26),mMach,0,0,0);add(pl,new THREE.CylinderGeometry(.52,.52,.04,32),mMach,0,-.02,0);
+add(pl,new THREE.CylinderGeometry(.25,.25,.12,24),mMach,0,-.06,0);add(pl,threadGeo(.28,.33),mSteel,0,-.12,0);
+add(pl,new THREE.CylinderGeometry(.2,.2,.1,24),mMag,0,-.5,0);add(pl,new THREE.CylinderGeometry(.21,.21,.03,24),mCopper,0,-.44,0);
+add(pl,cylX(.06,.72),mDark,0,.15,-.2);
+add(pl,new THREE.CylinderGeometry(.2,.2,.1,24),mInsul,0,.31,0);add(pl,new THREE.CylinderGeometry(.05,.05,.14,12),mGold,0,.42,0);
+// Alambre de freno (carrete)
+const wi=G('wire','Alambre de freno 0.032\" acero inoxidable','SW-0032-SS','Sin dobleces ni oxidación',V(-4.2,-.9,2.35),true);
+add(wi,new THREE.CylinderGeometry(.18,.18,.22,24),mFlange,0,.08,0);[-.03,.19].forEach(y=>add(wi,new THREE.CylinderGeometry(.42,.42,.025,40),mFlange,0,y,0));
+for(let i=0;i<4;i++)add(wi,new THREE.TorusGeometry(.27,.04,8,48).rotateX(PI/2),mWire,0,.0+.05*i,0);
+// Llave dinamométrica de chasquido (cromada, escala grabada, empuñadura de goma)
+const wr=G('wrench','Llave dinamométrica 5–40 N·m','TW-1150-25','',V(-6.4,-.7,-.8),true,-PI/2);wr.userData.preset=35;wr.userData.date='30-01-2025';
+{const sh=new THREE.Shape(),ho=new THREE.Path();for(let i=0;i<6;i++){const a=i*PI/3;i?sh.lineTo(.68*Math.cos(a),.68*Math.sin(a)):sh.moveTo(.68*Math.cos(a),.68*Math.sin(a));i?ho.lineTo(.53*Math.cos(a),.53*Math.sin(a)):ho.moveTo(.53*Math.cos(a),.53*Math.sin(a))}sh.holes.push(ho);
+const sg=new THREE.ExtrudeGeometry(sh,{depth:.4,bevelEnabled:true,bevelSize:.02,bevelThickness:.02,bevelSegments:2});sg.rotateX(-PI/2);add(wr,sg,mChrome,0,-.25,0)}
+add(wr,new THREE.CylinderGeometry(.58,.58,.08,32),mChrome,0,.2,0);add(wr,new THREE.CylinderGeometry(.56,.56,.22,32),mChrome,0,.34,0);add(wr,new THREE.CylinderGeometry(.18,.18,.12,20),mDark,0,.5,0);
+add(wr,new THREE.BoxGeometry(.9,.2,.3),mChrome,.8,.34,0);add(wr,cylX(.13,1.7),mChrome,1.65,.34,0);
+for(let i=0;i<13;i++)add(wr,new THREE.TorusGeometry(.132,.007,6,20).rotateY(PI/2),mDark,.95+i*.12,.34,0);
+add(wr,cylX(.17,.18),mSteel,2.6,.34,0);add(wr,cylX(.16,1.0),mGrip,3.2,.34,0);[2.8,3.0,3.2,3.4,3.6].forEach(x=>add(wr,new THREE.TorusGeometry(.162,.012,6,20).rotateY(PI/2),mDark,x,.34,0));
+add(wr,new THREE.CylinderGeometry(.16,.16,.06,16).rotateZ(PI/2),mRed,3.72,.34,0);
+// Alicates: trenzador (Milbar, barril central, manga amarilla) y cortador diagonal
+function twisterModel(g){[-1,1].forEach(s=>add(g,new THREE.CylinderGeometry(.07,.03,.75,10).rotateZ(-PI/2),mChrome,.4,0,s*.045));
+ add(g,new THREE.CylinderGeometry(.08,.08,.22,16),mChrome,.8,0,0);
+ add(g,new THREE.BoxGeometry(1.2,.1,.13),mSteel,1.45,0,.09).rotation.y=-.04;
+ add(g,cylX(.09,1.2,16),mChrome,1.5,0,-.1);for(let i=0;i<8;i++)add(g,new THREE.TorusGeometry(.092,.008,6,16).rotateY(PI/2),mDark,.95+i*.15,0,-.1);
+ add(g,cylX(.1,.2,16),mYel,.85,0,-.1);add(g,cylX(.04,.9,8),mSteel,2.5,0,-.1);add(g,new THREE.SphereGeometry(.1,12,12),mGrip,2.98,0,-.1);
+ add(g,cylX(.07,.8,12),mGrip,1.9,0,.1)}
+function cutterModel(g){[-1,1].forEach(s=>{const j=add(g,new THREE.BoxGeometry(.55,.14,.09),mChrome,.25,0,s*.05);j.rotation.y=-s*.1});
+ add(g,new THREE.CylinderGeometry(.1,.1,.2,16),mChrome,.6,0,0);
+ [-1,1].forEach(s=>{const h=add(g,new THREE.BoxGeometry(1.2,.09,.12),mSteel,1.2,0,s*.07);h.rotation.y=-s*.05;add(g,cylX(.07,.8,12),mRed,1.75,0,s*.12)})}
+const tw=G('twister','Alicates trenzadores de safety wire','WT-0900-A','Mandíbulas alineadas, sin desgaste',V(-5.3,-.88,-.8),true,-PI/2);twisterModel(tw);tw.userData.inspected=true;
+const cu=G('cutter','Alicates de corte diagonal','WC-0450-D','Filo sin mellas, articulación suave',V(-4.2,-.88,-.8),true,-PI/2);cutterModel(cu);cu.userData.inspected=true;
+// Safety wire instalado
+const A=V(.38,1.27,-.2),Bn=V(1.59,1.27,.2),B=V(2.25,1.27,.2),T=V(3,1.33,.2),Tc=V(2.65,1.2,.2),ctT=V(2.55,1.45,.2);
+const wireG=new THREE.Group(),tailG=new THREE.Group();wireG.userData.id='wirei';S.add(wireG,tailG);
+const tail=add(S,new THREE.SphereGeometry(.1,12,12),mat(0xf5a524,0,.5,{emissive:0xf5a524}),T.x,T.y,T.z);tail.userData.id='tail';tail.visible=false;
+function strand(P0,P1,turns,ph,amp,rad){const d=P1.clone().sub(P0),L=d.length(),dir=d.clone().normalize(),u=V(0,1,0),v=dir.clone().cross(u).normalize(),pts=[];
+ for(let i=0;i<=60;i++){const t=i/60,a=t*turns*6.283+ph,k=amp*Math.min(1,t*10,(1-t)*10+.4);pts.push(P0.clone().addScaledVector(dir,t*L).addScaledVector(u,Math.cos(a)*k).addScaledVector(v,Math.sin(a)*k))}
+ const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),80,rad||.022,6),mWire);m.castShadow=true;return m}
+const pair=(g,P0,P1,turns,rad)=>g.add(strand(P0,P1,turns,0,.04,rad),strand(P0,P1,turns,PI,.04,rad));
+const clr=g=>{while(g.children.length){const c=g.children.pop();c.geometry&&c.geometry.dispose()}};
+function drawWire(t){clr(wireG);pair(wireG,A,Bn,t);pair(wireG,Bn,B,0)}
+S.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
+// Pasos
+const ST=['Colocar O-ring nuevo en el tapón','Posicionar el tapón en el puerto','Roscar a mano (mantén pulsado)','Torquear a 22–28 N·m','Pasar safety wire: tapón → perno','Trenzar el alambre','Cortar el sobrante'];
+const MS=['Arrastra el O-ring hasta la ranura del tapón. Sigue el fantasma ámbar: se pega si lo sueltas cerca.','Arrastra el tapón hasta el puerto del reductor.','Mantén pulsado sobre el tapón para roscarlo a mano.','Arrastra la llave sobre el tapón; luego mantén pulsado y suelta cuando alcance el torque correcto.','Arrastra el alambre al agujero del TAPÓN (1/2). Debe quedar tenso y tirar en sentido de apriete.','Arrastra los alicates trenzadores sobre el alambre y mantén pulsado para trenzar.','Toma los alicates de corte, llévalos al extremo del alambre y toca la punta para cortar el sobrante.'];
+const ol=$('ol');ST.forEach(s=>{const l=document.createElement('li');l.textContent=s;ol.appendChild(l)});
+let step=0,sub=0,hold=false,holdT=0,depth=0,torque=0,prog=0,done=false,sel=null,fSnap=0,fTq=0,drag=null,orbit=false,mode='',tapIt=null,sx=0,sy=0,moved=false,lx=0,ly=0,th=0,ph=.95,uDist=innerWidth/innerHeight<1.2?26:17,cDist=uDist,cutting=false,cutT=0,snipped=false,cutP=null,vy=0,vx=0,vz=0,binned=false,binIn=false,tqBad=0,auto=location.hash=='#auto',autoMove=null;
+const t0=performance.now(),tgt=V(0,.2,.8),DEF=V(0,.2,.8);
+function msg(t,c){const e=$('msg');e.textContent=t;e.style.color=c||''}
+function ui(){[...ol.children].forEach((l,i)=>l.className=i<step?'done':i==step?'cur':'');$('tq').textContent=torque.toFixed(1);$('pv').textContent=wr.userData.preset;$('zone').style.left=(wr.userData.preset-3.5)/40*100+'%';$('fill').style.width=Math.min(100,torque/40*100)+'%';const inS=torque>0&&Math.abs(torque-wr.userData.preset)<=3.5;$('fill').style.background=inS?'var(--ok)':'var(--ac)';$('zone').style.background=inS?'rgba(62,207,142,.5)':'rgba(255,255,255,.35)';$('zone').style.borderColor=inS?'var(--ok)':'#fff';$('hud').style.display=step==3&&!done?'block':'none'}
+function next(){step++;sub=0;if(step>=ST.length){msg('Corte realizado. Revisa el trabajo y pulsa «Terminar».','var(--ok)');$('fin').style.display='block'}else msg(MS[step]);ui()}
+msg(MS[0]);ui();
+const AX=V(1,0,0),AY=V(0,1,0),AZ=V(0,0,1),shellM=new THREE.MeshBasicMaterial({color:0x3ecf8e,side:THREE.BackSide,transparent:true,opacity:.75});
+const CTL='<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px"><button class="rb" data-a="yl">\u21ba</button><button class="rb" data-a="yr">\u21bb</button><button class="rb" data-a="pu">\u2912</button><button class="rb" data-a="pd">\u2913</button><button class="rb" data-a="rl">\u27f2</button><button class="rb" data-a="rr">\u27f3</button><button class="rb" data-a="home">\u2302 Devolver</button></div><div style="font-size:11px;margin-top:4px">Girar: botones, Q/E W/S A/D, rueda o clic derecho al sostener.</div>';
+function wInfo(u){const ok=u.preset==25,c=ok?'var(--ok)':'var(--tx)';return `Valor ajustado: <b style="color:${c}">${u.preset} N·m</b><br>Calibrado hasta: <b style="color:${c}">${u.date}</b>${ok?' ✔':(tqBad?'<br><span style="color:var(--bad)">Valores bloqueados tras sobretorque: reinicia el proceso.</span>':'<br><button id="bm">⚙ Modificar valores</button>')}`}
+function card(){const c=$('card');if(!sel){c.style.display='none';return}const u=sel.userData;c.style.display='block';
+ c.innerHTML=u.inspected?`<b>${u.name}</b><br>P/N: <code>${u.pn}</code><br>`+(u.id=='wrench'?wInfo(u):`<span style="color:var(--ok)">✔ ${u.state}</span>`):`<b>Pieza sin identificar</b><br>Inspecciónala para ver nombre y P/N.<br><button id="bi">🔍 Inspeccionar</button>`;
+ if(u.drag&&!u.locked)c.innerHTML+=CTL;c.querySelectorAll('.rb').forEach(x=>{x.onclick=()=>rotBtn(x.dataset.a)});const b=$('bi');if(b)b.onclick=()=>{u.inspected=true;card()};const m=$('bm');if(m)m.onclick=()=>{if(tqBad)return;u.preset=25;u.date='30-09-2027';card();ui();msg('Llave ajustada a 25 N·m y calibración 30-09-2027.','var(--ok)')}}
+function select(it){if(sel&&sel.userData.sh)sel.userData.sh.forEach(s=>s.visible=false);sel=it;
+ if(it){if(!it.userData.sh){const ms=[];it.traverse(o=>{if(o.isMesh&&!o.userData.shell)ms.push(o)});it.userData.sh=ms.map(o=>{const s=new THREE.Mesh(o.geometry,shellM);s.userData.shell=true;s.scale.setScalar(1.08);o.add(s);return s})}it.userData.sh.forEach(s=>s.visible=true)}
+ card()}
+function rotBtn(a){if(auto||!sel||sel.userData.locked||!sel.userData.drag)return;const g=PI/12;
+ if(a=='home'){sel.userData.homing=true;return}
+ const m={yl:[AY,g],yr:[AY,-g],pu:[AX,-g],pd:[AX,g],rl:[AZ,g],rr:[AZ,-g]}[a];if(m)sel.rotateOnWorldAxis(m[0],m[1])}
+function finish(){done=true;select(null);$('fin').style.display='none';const miss=Object.values(ITEMS).filter(i=>!i.userData.inspected),fod=binned?0:1,nErr=miss.length+fod+(tqBad?1:0);
+ $('rep').style.display='block';$('rep').innerHTML=`<h2>Ensamble completado</h2><p>Errores: <b style="color:${nErr?'var(--bad)':'var(--ok)'}">${nErr} de 8</b> · Tiempo: ${Math.round((performance.now()-t0)/1000)} s · Torques fallidos: ${fTq} · Snaps fuera de rango: ${fSnap}</p>`+
+ (miss.length?`<p>Piezas usadas sin inspección previa:</p><ul>${miss.map(i=>`<li>${i.userData.name} <code>${i.userData.pn}</code><br><span style="color:var(--bad)">Instalado sin inspección previa</span></li>`).join('')}</ul>`:'<p>Todas las piezas fueron inspeccionadas antes de usarse. ✔</p>')+(fod?'<p style="color:var(--bad)">Sobrante de alambre no depositado en el bote FOD.</p>':'<p>Sobrante depositado en el bote FOD. ✔</p>')+(tqBad?'<p style="color:var(--bad)">Sobretorque aplicado: '+tqBad.toFixed(1)+' N·m (requerido 22–28).</p>':'')+'<button onclick="location.reload()">Reiniciar</button>';
+ msg('Procedimiento terminado.','var(--ok)');ui()}
+// Ghost y snap
+const gm=new THREE.MeshBasicMaterial({color:0xf5a524,transparent:true,opacity:.4,depthWrite:false});let ghost=null;
+function exp(){const p=pl.position,L=n=>ITEMS[n].userData.locked;switch(step){
+ case 0:return{id:'oring',pos:V(p.x,p.y-.07,p.z)};case 1:return{id:'plug',pos:V(0,HOV,0)};
+ case 3:return L('wrench')?null:{id:'wrench',pos:V(0,p.y+.34,0)};case 4:return{id:'wire',pos:sub?Bn:A};
+ case 5:return L('twister')?null:{id:'twister',pos:V(1,1.5,0)};case 6:return L('cutter')?null:{id:'cutter',pos:ctT}}return null}
+function mkGhost(it,E){ghost=it.clone(true);const rm=[];ghost.traverse(o=>{if(o.userData.shell)rm.push(o);else if(o.isMesh){o.material=gm;o.castShadow=false}});rm.forEach(o=>o.parent.remove(o));ghost.position.copy(E.pos);ghost.rotation.set(0,0,0);S.add(ghost)}
+function snap(it,E){const u=it.userData;
+ if(step==0){pl.add(it);it.position.set(0,-.07,0);u.locked=true;next()}
+ else if(step==1){it.position.set(0,HOV,0);u.locked=true;next()}
+ else if(step==3){u.locked=true;msg('Llave colocada. Mantén pulsado y suelta al alcanzar el torque correcto.')}
+ else if(step==4){if(!sub){sub=1;msg('Ahora llévalo al agujero del PERNO (2/2): ambos extremos tensos y en sentido de apriete.')}else{drawWire(0);it.visible=false;u.locked=true;next()}}
+ else if(step==5){u.locked=true;msg('Mantén pulsado sobre el alambre para trenzar (6–8 giros por pulgada).')}
+ else if(step==6){u.locked=true;msg('Alicates en posición. Toca la punta del alambre para cortar.')}}
+// Entrada
+const RC=new THREE.Raycaster(),mo=new THREE.Vector2(),pn=new THREE.Plane(),pt=V(0,0,0);
+const vis=o=>{while(o){if(!o.visible)return false;o=o.parent}return true};
+function pick(e){const r=R.domElement.getBoundingClientRect();mo.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);RC.setFromCamera(mo,C);
+ const h=RC.intersectObjects([...Object.values(ITEMS),wireG,tail,...(cutP?[cutP]:[])],true).filter(x=>vis(x.object));if(!h.length)return null;
+ let o=h[0].object;while(o&&!o.userData.id)o=o.parent;return o?{id:o.userData.id,pt:h[0].point}:null}
+function holdOK(id){const L=n=>ITEMS[n].userData.locked;
+ if(step==2)return id=='plug'||id=='oring';
+ if(step==3)return L('wrench')&&(id=='wrench'||id=='plug'||id=='oring');
+ if(step==5)return L('twister')&&(id=='twister'||id=='wirei')}
+const cv=R.domElement;
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);sx=lx=e.clientX;sy=ly=e.clientY;moved=false;mode='orbit';tapIt=null;if(auto){orbit=true;return}if(done||cutting)return;
+ const k=pick(e);if(!k){orbit=true;return}
+ const it=ITEMS[k.id];tapIt=it||null;if(it)select(it);
+ if(e.button==2&&it&&it.userData.drag&&!it.userData.locked){mode='rot';return}
+ if(k.id=='scrap'&&!binned){mode='drag';pn.setFromNormalAndCoplanarPoint(C.getWorldDirection(V(0,0,0)),k.pt);vy=0;vx=vz=0;binIn=false;drag={it:cutP,off:cutP.position.clone().sub(k.pt),E:null};return}
+ if(step==6&&k.id=='tail'){if(!cu.userData.locked){msg('Necesitas los alicates de corte en posición.','var(--bad)');return}cutting=true;cutT=0;snipped=false;msg('Cortando…');return}
+ if(holdOK(k.id)){hold=true;holdT=0;mode='hold';return}
+ if(it&&it.userData.drag&&!it.userData.locked){mode='drag';const cam=C.getWorldDirection(V(0,0,0));pn.setFromNormalAndCoplanarPoint(cam,k.pt);
+  it.userData.homing=false;drag={it,off:it.position.clone().sub(k.pt),E:exp()};if(drag.E&&drag.E.id==k.id)mkGhost(it,drag.E);return}
+ orbit=true});
+cv.addEventListener('pointermove',e=>{if(Math.hypot(e.clientX-sx,e.clientY-sy)>5)moved=true;
+ if(mode=='drag'&&drag){const r=cv.getBoundingClientRect();mo.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);RC.setFromCamera(mo,C);
+  if(RC.ray.intersectPlane(pn,pt)){drag.it.position.copy(pt).add(drag.off);if(drag.it.position.y<-.6)drag.it.position.y=-.6;if(drag.it===cutP)binCollide(drag.it.position);if(ghost)gm.color.set(drag.it.position.distanceTo(drag.E.pos)<1?0x3ecf8e:0xf5a524)}}
+ else if(mode=='rot'&&sel){sel.rotateOnWorldAxis(AY,(e.clientX-lx)*.012);sel.rotateOnWorldAxis(AX,(e.clientY-ly)*.012);lx=e.clientX;ly=e.clientY}
+ else if(orbit){th-=(e.clientX-lx)*.008;ph=Math.max(.25,Math.min(1.5,ph-(e.clientY-ly)*.008));lx=e.clientX;ly=e.clientY}});
+function up(){
+ if(mode=='drag'&&drag){const it=drag.it,E=drag.E;if(ghost){S.remove(ghost);ghost=null}
+  if(it===cutP){const dx=it.position.x-BC.x,dz=it.position.z-BC.z,h=Math.hypot(dx,dz);if(h<BRI-.05&&(binIn||it.position.y>=BIN_TOP)){binned=true;it.position.set(BC.x+dx*.3,-.93,BC.z+dz*.3);it.rotation.set(0,0,0);msg('Sobrante depositado en el bote FOD.','var(--ok)')}else if(h<BRO+.12){const ux=h>1e-3?dx/h:1,uz=h>1e-3?dz/h:0;it.position.x=BC.x+ux*(BRO+.15);it.position.z=BC.z+uz*(BRO+.15)}vy=0;vx=vz=0;binIn=false;drag=null;orbit=false;mode='';return}
+  if(!moved)select(it);
+  else if(E&&E.id==it.userData.id){if(it.position.distanceTo(E.pos)<1){it.position.copy(E.pos);it.rotation.set(0,0,0);snap(it,E)}else{fSnap++;msg('Fuera de rango: la pieza queda en el aire; recógela y acércala al fantasma.','var(--bad)')}}
+  else msg('Esa pieza no corresponde a este paso.','var(--bad)');drag=null}
+ else if(mode=='hold'){
+  if(step==3&&holdT>.6&&torque>.5){const pv=wr.userData.preset,tv=torque;if(Math.abs(tv-pv)<=3.5){const bad=tv<22||tv>28;if(bad){tqBad=Math.max(tqBad,tv);if(sel===wr)card()}depth=1;wr.userData.locked=false;wr.userData.homing=true;hold=false;next();msg(bad?'Torque '+tv.toFixed(1)+' N·m fuera de 22–28: registrado como error. '+MS[4]:'Torque correcto: '+tv.toFixed(1)+' N·m. '+MS[4],bad?'var(--bad)':'var(--ok)')}
+   else if(tv>pv+3.5){tqBad=Math.max(tqBad,tv);if(sel===wr)card();fTq++;msg('Sobretorque ('+tv.toFixed(1)+' N·m): pasaste la franja. Registrado como error; reintenta.','var(--bad)');torque=0;ui()}
+   else{fTq++;msg('Torque insuficiente ('+torque.toFixed(1)+' N·m). Reintenta.','var(--bad)');torque=0;ui()}}
+  else if(!moved&&holdT<.3&&tapIt)select(tapIt);hold=false}
+ else if(mode=='orbit'&&!moved){select(tapIt)}
+ orbit=false;mode='';hold=false}
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('wheel',e=>{e.preventDefault();if(drag)drag.it.rotateOnWorldAxis(AY,e.deltaY*.004);else uDist=Math.max(5,Math.min(28,uDist+e.deltaY*.01))},{passive:false});
+cv.addEventListener('contextmenu',e=>e.preventDefault());addEventListener('keydown',e=>{const m={q:'yl',e:'yr',w:'pu',s:'pd',a:'rl',d:'rr'}[e.key.toLowerCase()];if(m)rotBtn(m)});
+function resize(){R.setSize(innerWidth,innerHeight);C.aspect=innerWidth/innerHeight;C.updateProjectionMatrix()}
+addEventListener('resize',resize);resize();$('zi').onclick=()=>{uDist=Math.max(5,uDist-2)};$('zo').onclick=()=>{uDist=Math.min(28,uDist+2)};
+// Bucle
+const clk=new THREE.Clock(),wp=V(0,0,0);
+(function loop(){requestAnimationFrame(loop);const dt=Math.min(.05,clk.getDelta()),t=clk.elapsedTime;
+ if(hold&&!done){holdT+=dt;
+  if(step==2){depth=Math.min(.85,depth+dt*.35);pl.rotation.y-=dt*7;if(depth>=.85){hold=false;next()}}
+  else if(step==3){torque=Math.min(40,torque+dt*9);pl.rotation.y-=dt*1.2;depth=Math.max(depth,.85+.15*Math.min(1,torque/25));wr.rotation.y=pl.rotation.y;ui()}
+  else if(step==5){prog=Math.min(1,prog+dt*.3);drawWire(prog*8);tw.rotation.z=Math.sin(t*14)*.04;
+   if(prog>=1){hold=false;tw.rotation.z=0;tw.userData.locked=false;tw.userData.homing=true;clr(tailG);pair(tailG,B,T,4);tail.visible=true;next()}}}
+ if(pl.userData.locked)pl.position.set(0,SEAT+.7*(1-depth),0);
+ if(wr.userData.locked)wr.position.set(0,pl.position.y+.34,0);
+ if(tw.userData.locked)tw.position.set(1,1.5,0);
+ if(cutting){cutT+=dt;
+  if(cutT<.7)cu.scale.z=1-.4*Math.abs(Math.sin(cutT*9));
+  if(cutT>=.7&&!snipped){snipped=true;cu.scale.z=1;clr(tailG);pair(tailG,B,Tc,3);tail.visible=false;
+   const mid=Tc.clone().add(T).multiplyScalar(.5);cutP=new THREE.Group();cutP.userData.id='scrap';cutP.add(new THREE.Mesh(new THREE.SphereGeometry(.3,8,8),new THREE.MeshBasicMaterial({visible:false})));cutP.position.copy(mid);pair(cutP,Tc.clone().sub(mid),T.clone().sub(mid),0,.035);S.add(cutP);vy=0;vx=.5;vz=1.1}
+  if(cutP&&cutP.position.y>-.96){vy+=9*dt;cutP.position.y=Math.max(-.96,cutP.position.y-vy*dt);cutP.position.x+=vx*dt;cutP.position.z+=vz*dt;cutP.rotation.z+=dt*4;cutP.rotation.x+=dt*2;if(cutP.position.y<=-.96){cutP.rotation.set(0,1.1,0);vx=vz=0}}
+  if(cutT>1.4)cu.position.lerp(V(ctT.x,4,ctT.z),.1);
+  if(cutT>2.3){cutting=false;cu.userData.locked=false;cu.userData.homing=true;next()}}
+ Object.values(ITEMS).forEach(i=>{const u=i.userData;if(!u.drag)return;const hd=drag&&drag.it===i;
+  if(u.homing&&!u.locked&&!hd){u.hq=u.hq||new THREE.Quaternion().setFromEuler(new THREE.Euler(0,u.rot,0));i.position.lerp(u.home,.15);i.quaternion.slerp(u.hq,.15);if(i.position.distanceTo(u.home)<.01){i.position.copy(u.home);i.quaternion.copy(u.hq);u.homing=false}}});
+ tail.scale.setScalar(1+.25*Math.sin(t*6));if(cutP&&!binned&&!cutting&&!autoMove&&!(drag&&drag.it===cutP)&&cutP.position.y>-.96){vy+=9*dt;cutP.position.y=Math.max(-.96,cutP.position.y-vy*dt);cutP.position.x+=vx*dt;cutP.position.z+=vz*dt;cutP.rotation.z+=dt*3;if(cutP.position.y<=-.96){cutP.rotation.set(0,1.1,0);vx=vz=0}}
+ tgt.lerp(DEF,.08);cDist+=(uDist-cDist)*.08;
+ C.position.set(tgt.x+cDist*Math.sin(ph)*Math.sin(th),tgt.y+cDist*Math.cos(ph),tgt.z+cDist*Math.sin(ph)*Math.cos(th));C.lookAt(tgt);
+ R.render(S,C)})();
+// Reproducción automática del procedimiento
+const frame=()=>new Promise(r=>requestAnimationFrame(r)),W=ms=>new Promise(r=>setTimeout(r,ms)),until=async f=>{while(!f())await frame()};
+async function mv(it,pos,dur){const p0=it.position.clone(),q0=it.quaternion.clone(),q1=new THREE.Quaternion(),s=performance.now();autoMove=it;
+ for(;;){const k=Math.min(1,(performance.now()-s)/dur),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;it.position.lerpVectors(p0,pos,e);it.position.y+=Math.sin(PI*e)*.7;it.quaternion.copy(q0).slerp(q1,e);if(k>=1)break;await frame()}
+ it.position.copy(pos);autoMove=null}
+const insp=async it=>{select(it);msg('Inspeccionando: '+it.userData.name+'…');await W(600);it.userData.inspected=true;card();await W(900)};
+async function place(it){const E=exp();mkGhost(it,E);await mv(it,E.pos,1200);S.remove(ghost);ghost=null;it.rotation.set(0,0,0);snap(it,E);await W(500)}
+async function autoPlay(){
+ msg('Reproducción automática del procedimiento. Pulsa «Manual» para hacerlo tú.');await W(1500);
+ await insp(hs);await insp(bt);await insp(or);await insp(pl);
+ await place(or);await place(pl);
+ hold=true;holdT=0;await until(()=>step>=3);await W(400);
+ await insp(wr);wr.userData.preset=25;wr.userData.date='30-09-2027';card();ui();msg('Se corrigen los valores de la llave: 25 N·m y calibrado hasta 30-09-2027.','var(--ok)');await W(1500);
+ await place(wr);hold=true;holdT=0;msg('Aplicando torque…');await until(()=>torque>=25);hold=false;torque=25;ui();await W(600);
+ depth=1;wr.userData.locked=false;wr.userData.homing=true;next();msg('Torque correcto: 25.0 N·m. '+MS[4],'var(--ok)');await W(1200);
+ await insp(wi);await place(wi);await place(wi);
+ await place(tw);hold=true;holdT=0;await until(()=>step>=6);await W(900);
+ await place(cu);cutting=true;cutT=0;snipped=false;msg('Cortando…');await until(()=>step>=7);await W(1500);
+ msg('Depositando el sobrante en el bote FOD…');
+ await mv(cutP,V(cutP.position.x,-.3,cutP.position.z),800);await mv(cutP,V(BC.x,-.3,BC.z),1300);await mv(cutP,V(BC.x,-.93,BC.z),800);
+ binned=true;cutP.rotation.set(0,0,0);msg('Sobrante depositado en el bote FOD.','var(--ok)');await W(1500);finish()}
+(auto?$('bplay'):$('bman')).style.borderColor='var(--ac)';
+if(auto)autoPlay();
+</script><script src="deck-bridge.js"></script></body></html>

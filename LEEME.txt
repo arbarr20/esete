@@ -1,0 +1,27 @@
+ESETE — Presentación
+====================
+
+QUÉ COPIAR
+  Copiá esta carpeta completa ("presentacion"). No hace falta nada más del proyecto:
+  adentro están las 11 láminas, el concentrador y las dos imágenes de la portada.
+
+CÓMO USARLA
+  1. Abrí "linker.html" con Chrome o Edge (doble clic).
+  2. Marcá las láminas que querés presentar y ordenalas con las flechas ▲ ▼.
+  3. "Presentar" arma el deck; "Salir" vuelve a la lista.
+
+  La selección y el orden quedan guardados en el navegador.
+
+ATAJOS EN PRESENTACIÓN
+  ← →        pantalla anterior / siguiente
+  Espacio    ocultar o mostrar los controles
+  Inicio/Fin primera / última pantalla
+  M          índice      B  pantalla en negro      F  pantalla completa
+  ?          ayuda       Esc  cerrar
+
+IMPORTANTE
+  • Las láminas 3D cargan three.js desde internet. Sin conexión, el resto de la
+    presentación funciona, pero los visores 3D quedan vacíos.
+  • Las fotos de las láminas están incluidas dentro de cada HTML.
+  • Los modelos 3D (.glb) que elegiste en el editor viven en el navegador de esta
+    máquina, no en esta carpeta. En otra computadora hay que volver a elegirlos.

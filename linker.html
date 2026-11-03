@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ESETE · Concentrador de láminas</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23001326'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23F4D171'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#001326; --cy:#9BD3E9; --gold:#F4D171; --fg:#fff;
+    --mono:'DM Mono','Courier New',monospace;
+    --sans:'Space Grotesk',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --fade:420ms;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ width:100%; height:100%; margin:0; overflow:hidden; background:var(--bg); }
+  body{ color:var(--fg); font-family:var(--sans); }
+
+  /* ── Dos modos: panel (dashboard) y presentación ── */
+  body.mode-panel #stage,
+  body.mode-panel #progress,
+  body.mode-panel #hud{ display:none; }
+  body.mode-present #panel{ display:none; }
+
+  /* ── Panel ── */
+  #panel{
+    position:fixed; inset:0; overflow-y:auto; overflow-x:hidden;
+    padding:clamp(18px,4vh,44px) clamp(16px,5vw,72px) 112px;
+    background:
+      radial-gradient(ellipse 78% 58% at 50% -8%, #07314f 0%, #041f38 45%, #001326 78%, #000d1a 100%);
+  }
+  .panel-inner{ max-width:1040px; margin:0 auto; }
+  .panel-kicker{
+    margin:0 0 10px; font-family:var(--mono); font-size:10.5px; letter-spacing:.22em;
+    text-transform:uppercase; color:rgba(155,211,233,.62);
+  }
+  #panel h1{
+    margin:0 0 10px; font-size:clamp(26px,3.4vw,40px); line-height:1.08;
+    letter-spacing:-.02em; font-weight:500;
+  }
+  .panel-sub{ margin:0; max-width:72ch; font-size:14.5px; line-height:1.55; color:rgba(255,255,255,.62); }
+  .panel-note{
+    margin:10px 0 0; font-family:var(--mono); font-size:11px; letter-spacing:.04em;
+    color:rgba(255,255,255,.42);
+  }
+  .panel-note strong{ color:rgba(244,209,113,.78); font-weight:400; }
+
+  .panel-tools{
+    display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+    margin:clamp(14px,2.6vh,26px) 0 10px;
+  }
+  .tool{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(255,255,255,.78); background:rgba(4,20,38,.6);
+    border:1px solid rgba(155,211,233,.22); border-radius:99px;
+    padding:9px 16px; cursor:pointer;
+    transition:background .16s ease, color .16s ease, border-color .16s ease;
+  }
+  .tool:hover{ background:rgba(155,211,233,.12); color:#fff; border-color:rgba(155,211,233,.4); }
+  .tool:focus-visible{ outline:2px solid var(--cy); outline-offset:2px; }
+  .tools-spacer{ flex:1 1 12px; }
+
+  .cover-check{
+    display:inline-flex; align-items:center; gap:9px; cursor:pointer;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(255,255,255,.78); background:rgba(4,20,38,.6);
+    border:1px solid rgba(155,211,233,.22); border-radius:99px; padding:8px 16px 8px 12px;
+  }
+  .cover-check input{ accent-color:#F4D171; width:15px; height:15px; margin:0; cursor:pointer; }
+  .cover-check:focus-within{ outline:2px solid var(--cy); outline-offset:2px; }
+
+  .rows{ margin:0; padding:0; list-style:none; display:grid; gap:5px; }
+  .row{
+    display:flex; align-items:center; gap:10px;
+    background:rgba(4,20,38,.52); border:1px solid rgba(155,211,233,.13);
+    border-radius:12px; padding:5px 8px 5px 4px;
+    transition:background .14s ease, border-color .14s ease, opacity .14s ease;
+  }
+  .row:hover{ background:rgba(9,36,60,.72); border-color:rgba(155,211,233,.26); }
+  .row.is-off{ opacity:.52; }
+  .row-main{
+    display:flex; align-items:center; gap:14px; flex:1; min-width:0;
+    padding:7px 10px; cursor:pointer; border-radius:9px;
+  }
+  .row-main:focus-within{ outline:2px solid var(--cy); outline-offset:-2px; }
+  .row-main input{
+    accent-color:#F4D171; width:18px; height:18px; margin:0; flex:none; cursor:pointer;
+  }
+  .row-num{
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em; flex:none;
+    color:rgba(155,211,233,.72); min-width:22px;
+  }
+  .row-text{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .row-text b{ font-size:15px; font-weight:500; color:rgba(255,255,255,.92); }
+  .row-text small{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.05em;
+    color:rgba(255,255,255,.4); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .row-move{ display:flex; gap:2px; flex:none; }
+  .row-move button{
+    width:34px; height:34px; border-radius:8px; cursor:pointer;
+    font-size:12px; line-height:1; color:rgba(255,255,255,.7);
+    background:transparent; border:1px solid transparent;
+    transition:background .14s ease, color .14s ease;
+  }
+  .row-move button:hover:not(:disabled){ background:rgba(155,211,233,.14); color:#fff; }
+  .row-move button:focus-visible{ outline:2px solid var(--cy); outline-offset:1px; }
+  .row-move button:disabled{ opacity:.22; cursor:default; }
+
+  /* Barra fija: la lista scrollea por debajo, así el botón nunca tapa una fila. */
+  .panel-foot{
+    position:fixed; left:0; right:0; bottom:0; z-index:5;
+    padding:12px clamp(16px,5vw,72px) calc(12px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, rgba(0,13,26,.98) 45%, rgba(0,13,26,.9) 100%);
+    border-top:1px solid rgba(155,211,233,.1);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  }
+  .panel-foot-inner{
+    display:flex; align-items:center; gap:16px;
+    max-width:1040px; margin:0 auto;
+  }
+  .count{
+    flex:1; font-family:var(--mono); font-size:11.5px; letter-spacing:.12em;
+    text-transform:uppercase; color:rgba(255,255,255,.62);
+  }
+
+  #panel::-webkit-scrollbar{ width:10px; }
+  #panel::-webkit-scrollbar-track{ background:rgba(0,13,26,.6); }
+  #panel::-webkit-scrollbar-thumb{ background:rgba(155,211,233,.22); border-radius:99px; }
+  #panel::-webkit-scrollbar-thumb:hover{ background:rgba(155,211,233,.4); }
+  .btn-primary{
+    font-family:var(--mono); font-size:13px; letter-spacing:.18em; text-transform:uppercase;
+    color:#001326; background:var(--gold); border:0; border-radius:99px;
+    padding:14px 32px; cursor:pointer; font-weight:500;
+    box-shadow:0 14px 40px rgba(244,209,113,.22);
+    transition:transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+  }
+  .btn-primary:hover:not(:disabled){ transform:translateY(-1px); box-shadow:0 18px 46px rgba(244,209,113,.32); }
+  .btn-primary:focus-visible{ outline:2px solid var(--cy); outline-offset:3px; }
+  .btn-primary:disabled{ opacity:.35; cursor:not-allowed; box-shadow:none; transform:none; }
+
+  @media (max-width:640px){
+    .row-text b{ font-size:13.5px; }
+    .row-text small{ display:none; }
+    .panel-foot-inner{ flex-direction:column-reverse; align-items:stretch; gap:10px; }
+    .btn-primary{ width:100%; }
+  }
+
+  /* ── Escenario: una capa por documento, apiladas ── */
+  #stage{ position:fixed; inset:0; background:var(--bg); overflow:hidden; }
+
+  .screen{
+    position:absolute; inset:0; margin:0; border:0; width:100%; height:100%;
+    background:var(--bg);
+    opacity:0; visibility:hidden; pointer-events:none;
+    transition:opacity var(--fade) ease;
+    will-change:opacity;
+  }
+  .screen.is-on{ opacity:1; visibility:visible; pointer-events:auto; }
+
+  /* ── Portada (pantalla 0) — idéntica al deck original ── */
+  .cover{
+    overflow:hidden;
+    --art-h:min(72vh, 576px, calc(100vw * 9 / 16));
+    --art-w:calc(var(--art-h) * 16 / 9);
+    --art-lift:clamp(90px, 15vh, 190px);
+    background:radial-gradient(ellipse 72% 86% at 50% 78%,
+      #07314f 0%, #041f38 46%, #001326 74%, #000d1a 100%);
+  }
+  .cover-bloom{
+    position:absolute; left:50%; bottom:var(--art-lift);
+    width:var(--art-w); height:var(--art-h);
+    transform:translateX(-50%) scale(1.45);
+    transform-origin:50% 100%;
+    background:radial-gradient(ellipse 52% 58% at 50% 100%,
+      rgba(24,120,170,.45) 0%, rgba(6,47,78,.26) 45%, rgba(0,19,38,0) 100%);
+    filter:blur(30px);
+    pointer-events:none;
+  }
+  .cover-bg{
+    position:absolute; inset:0;
+    background:url('recursos/diap-titulo.png') no-repeat;
+    background-size:var(--art-w) var(--art-h);
+    background-position:50% calc(100% - var(--art-lift));
+    background-color:transparent;
+    -webkit-mask-image:
+      linear-gradient(to right,
+        transparent calc(50% - var(--art-w) / 2),
+        #000 calc(50% - var(--art-w) / 2 + 150px),
+        #000 calc(50% + var(--art-w) / 2 - 150px),
+        transparent calc(50% + var(--art-w) / 2)),
+      linear-gradient(to bottom,
+        transparent calc(100% - var(--art-lift) - var(--art-h)),
+        #000 calc(100% - var(--art-lift) - var(--art-h) + 150px),
+        #000 calc(100% - var(--art-lift) - 140px),
+        transparent calc(100% - var(--art-lift)));
+    -webkit-mask-composite:source-in;
+    mask-image:
+      linear-gradient(to right,
+        transparent calc(50% - var(--art-w) / 2),
+        #000 calc(50% - var(--art-w) / 2 + 150px),
+        #000 calc(50% + var(--art-w) / 2 - 150px),
+        transparent calc(50% + var(--art-w) / 2)),
+      linear-gradient(to bottom,
+        transparent calc(100% - var(--art-lift) - var(--art-h)),
+        #000 calc(100% - var(--art-lift) - var(--art-h) + 150px),
+        #000 calc(100% - var(--art-lift) - 140px),
+        transparent calc(100% - var(--art-lift)));
+    mask-composite:intersect;
+  }
+  .cover-escudo{
+    position:absolute; left:50%; top:12%; transform:translateX(-50%);
+    width:min(48vw, 86vh); height:auto; user-select:none; -webkit-user-drag:none;
+    filter:drop-shadow(0 24px 60px rgba(0,0,0,.45));
+    animation:coverIn .9s ease both;
+  }
+  @keyframes coverIn{ from{ opacity:0; transform:translateX(-50%) translateY(10px) scale(.985); } to{ opacity:1; transform:translateX(-50%) translateY(0) scale(1); } }
+  .cover-actions{
+    position:absolute; left:50%; bottom:3.2%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center;
+    padding:6px; border-radius:20px;
+    background:rgba(4,20,38,.74); border:1px solid rgba(155,211,233,.22);
+    backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+    box-shadow:0 20px 54px rgba(0,0,0,.55);
+  }
+  .cover-toggle{
+    display:flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase;
+    color:rgba(255,255,255,.62); background:transparent; border:0; cursor:pointer;
+    padding:6px 14px 4px; border-radius:99px;
+    transition:color .16s ease;
+  }
+  .cover-toggle:hover{ color:#fff; }
+  .cover-toggle:focus-visible{ outline:2px solid var(--cy); outline-offset:1px; }
+  .cover-toggle-ico{ font-size:11px; transition:transform .2s ease; }
+  .cover-actions.is-collapsed .cover-toggle-ico{ transform:rotate(180deg); }
+  .cover-body{
+    display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center;
+    padding:4px 20px 14px;
+  }
+  .cover-actions.is-collapsed .cover-body{ display:none; }
+  @media (max-width:1760px){
+    .cover-actions{ bottom:calc(3.2% + 64px); }
+  }
+  .cover-hint{
+    margin:0; font-family:var(--mono); font-size:11.5px; letter-spacing:.1em;
+    color:rgba(255,255,255,.74);
+    text-shadow:0 1px 14px rgba(0,19,38,.95), 0 0 26px rgba(0,19,38,.8);
+  }
+  kbd{
+    font-family:var(--mono); font-size:10.5px; padding:2px 6px; border-radius:5px;
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16); color:rgba(255,255,255,.72);
+  }
+
+  /* ── HUD ── */
+  #progress{
+    position:fixed; top:0; left:0; right:0; height:3px; z-index:21;
+    background:rgba(255,255,255,.07);
+  }
+  #progress i{ display:block; height:100%; width:0; background:var(--gold); transition:width .42s ease; }
+
+  #hud{
+    position:fixed; inset:0; z-index:20; pointer-events:none;
+    opacity:1; transition:opacity .22s ease;
+  }
+  body.hud-off #hud{ opacity:0; }
+  body.hud-off #bar{ pointer-events:none; }
+
+  #bar{
+    position:absolute; right:24px; bottom:20px;
+    display:flex; align-items:center; gap:8px;
+    padding:9px 12px; border-radius:99px; pointer-events:auto;
+    background:rgba(4,20,38,.82); border:1px solid rgba(155,211,233,.22);
+    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    box-shadow:0 14px 40px rgba(0,0,0,.5);
+  }
+  #bar button{
+    font-family:var(--mono); font-size:14px; letter-spacing:.08em; text-transform:uppercase;
+    color:rgba(255,255,255,.85); background:transparent; border:0; cursor:pointer;
+    padding:11px 17px; border-radius:99px; transition:background .16s ease, color .16s ease;
+  }
+  #bar button:hover{ background:rgba(255,255,255,.09); color:#fff; }
+  #bar button:focus-visible{ outline:2px solid var(--cy); outline-offset:1px; }
+  #bar button:disabled{ opacity:.3; cursor:default; background:transparent; }
+  #bar #exitBtn{ color:rgba(244,209,113,.82); }
+  #counter{ font-family:var(--mono); font-size:14px; letter-spacing:.14em; color:var(--gold); padding:0 10px; }
+  #label{
+    font-family:var(--mono); font-size:13px; letter-spacing:.1em; text-transform:uppercase;
+    color:rgba(255,255,255,.6); padding-right:12px; max-width:30vw;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  /* ── Índice ── */
+  #menu{
+    position:fixed; inset:0; z-index:40; display:none;
+    background:rgba(0,10,22,.9); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+    padding:6vh 7vw; overflow:auto;
+  }
+  #menu.is-open{ display:block; }
+  #menu h2{
+    margin:0 0 22px; font-family:var(--mono); font-size:12px; letter-spacing:.24em;
+    text-transform:uppercase; color:rgba(255,255,255,.45); font-weight:400;
+  }
+  #menu ol{ margin:0; padding:0; list-style:none; display:grid; gap:2px; max-width:760px; }
+  #menu li button{
+    display:flex; align-items:baseline; gap:16px; width:100%; text-align:left; cursor:pointer;
+    background:transparent; border:0; color:rgba(255,255,255,.72);
+    padding:11px 14px; border-radius:9px; font-family:var(--sans); font-size:17px;
+    transition:background .14s ease, color .14s ease;
+  }
+  #menu li button:hover{ background:rgba(155,211,233,.1); color:#fff; }
+  #menu li button:focus-visible{ outline:2px solid var(--cy); outline-offset:-2px; }
+  #menu li button[aria-current="true"]{ color:var(--gold); background:rgba(244,209,113,.08); }
+  #menu li b{ font-family:var(--mono); font-size:11px; letter-spacing:.12em; color:rgba(155,211,233,.75); min-width:26px; }
+
+  /* ── Negro y ayuda ── */
+  #black{ position:fixed; inset:0; z-index:60; background:#000; display:none; }
+  #black.is-on{ display:block; }
+  #help{
+    position:fixed; inset:0; z-index:50; display:none; place-items:center;
+    background:rgba(0,10,22,.88); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+  }
+  #help.is-open{ display:grid; }
+  #help .card{ max-width:520px; padding:32px 36px; border-radius:16px; background:rgba(4,20,38,.9); border:1px solid rgba(155,211,233,.16); }
+  #help h3{ margin:0 0 16px; font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); font-weight:400; }
+  #help dl{ margin:0; display:grid; grid-template-columns:auto 1fr; gap:9px 18px; align-items:center; font-size:13.5px; color:rgba(255,255,255,.72); }
+  #help dt{ text-align:right; }
+  #help dd{ margin:0; }
+
+  #toast{
+    position:fixed; left:50%; bottom:76px; transform:translateX(-50%); z-index:30;
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.1em;
+    padding:9px 16px; border-radius:99px; background:rgba(4,20,38,.9);
+    border:1px solid rgba(155,211,233,.18); color:rgba(255,255,255,.7);
+    opacity:0; transition:opacity .3s ease; pointer-events:none;
+  }
+  #toast.is-on{ opacity:1; }
+
+  @media (max-width:760px){
+    #label{ display:none; }
+    .cover-escudo{ width:min(78vw, 62vh); top:9%; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .screen{ transition:none; }
+    .cover-escudo{ animation:none; }
+  }
+</style>
+</head>
+<body class="mode-panel">
+
+<!-- ── Panel: selección y orden ── -->
+<main id="panel" aria-label="Concentrador de láminas">
+  <div class="panel-inner">
+    <p class="panel-kicker">ESETE · Modernización en las Ayudas de Instrucción Técnica</p>
+    <h1>Concentrador de láminas</h1>
+    <p class="panel-sub">
+      Elegí qué documentos entran a la presentación y en qué orden. La selección queda guardada en este navegador.
+    </p>
+    <p class="panel-note">
+      Las láminas 3D cargan <strong>three.js desde internet</strong>. Los modelos y las fotos que ya configuraste viven en este navegador, no en la carpeta.
+    </p>
+
+    <div class="panel-tools">
+      <button class="tool" id="allBtn" type="button">Todos</button>
+      <button class="tool" id="noneBtn" type="button">Ninguna</button>
+      <button class="tool" id="resetBtn" type="button">Orden original</button>
+      <span class="tools-spacer"></span>
+      <label class="cover-check">
+        <input id="coverChk" type="checkbox" checked>
+        Incluir portada
+      </label>
+    </div>
+
+    <ol class="rows" id="rows"></ol>
+
+    <footer class="panel-foot">
+      <div class="panel-foot-inner">
+        <span class="count" id="count" aria-live="polite">11 láminas</span>
+        <button class="btn-primary" id="presentBtn" type="button">Presentar</button>
+      </div>
+    </footer>
+  </div>
+</main>
+
+<!-- ── Presentación ── -->
+<div id="stage"></div>
+
+<div id="progress"><i></i></div>
+
+<div id="hud">
+  <div id="bar">
+    <button id="prevBtn" type="button" aria-label="Pantalla anterior">←</button>
+    <span id="counter">1 / 1</span>
+    <button id="nextBtn" type="button" aria-label="Pantalla siguiente">→</button>
+    <span id="label"></span>
+    <button id="menuBtn" type="button">Índice</button>
+    <button id="fsBtn" type="button" aria-label="Pantalla completa">⛶</button>
+    <button id="exitBtn" type="button" aria-label="Volver al concentrador">Salir</button>
+  </div>
+</div>
+
+<nav id="menu" aria-label="Índice de documentos">
+  <h2>Índice</h2>
+  <ol id="menuList"></ol>
+</nav>
+
+<div id="help" role="dialog" aria-label="Atajos de teclado">
+  <div class="card">
+    <h3>Atajos</h3>
+    <dl>
+      <dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Pantalla anterior / siguiente</dd>
+      <dt><kbd>Espacio</kbd></dt><dd>Ocultar o mostrar los controles</dd>
+      <dt><kbd>Inicio</kbd><kbd>Fin</kbd></dt><dd>Primera / última pantalla</dd>
+      <dt><kbd>M</kbd></dt><dd>Índice</dd>
+      <dt><kbd>B</kbd></dt><dd>Pantalla en negro</dd>
+      <dt><kbd>F</kbd></dt><dd>Pantalla completa</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Cerrar</dd>
+      <dt><kbd>?</kbd></dt><dd>Esta ayuda</dd>
+    </dl>
+  </div>
+</div>
+
+<div id="black" aria-hidden="true"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<!-- Plantilla de portada: se clona solo cuando la selección la incluye. -->
+<template id="tplCover">
+  <section class="screen cover" aria-label="Portada">
+    <div class="cover-bloom"></div>
+    <div class="cover-bg"></div>
+    <img class="cover-escudo" src="recursos/escudo-v-color.png" alt="Fuerza Aeroespacial Colombiana">
+    <div class="cover-actions">
+      <button class="cover-toggle" type="button" aria-expanded="true">
+        <span>Controles</span><span class="cover-toggle-ico" aria-hidden="true">⌄</span>
+      </button>
+      <div class="cover-body">
+        <button class="btn-primary cover-start" type="button">Comenzar</button>
+        <p class="cover-hint"></p>
+      </div>
+    </div>
+  </section>
+</template>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ── Catálogo fijo: el orden canónico es el orden de archivo. ── */
+  var SLIDES = [
+    { label:'Inicio',              src:'1-inicio.html' },
+    { label:'El caso ESETE',       src:'2-Proyecto.html' },
+    { label:'El problema',         src:'3-Comparativa.html' },
+    { label:'¿Funciona la RV?',    src:'4-Evidencia.html' },
+    { label:'Segundo eje: Web 3D', src:'5-web3d.html' },
+    { label:'Errores humanos',     src:'6-erroreshumanos.html' },
+    { label:'Demostración 3D',     src:'7-demoweb3.html' },
+    { label:'AET',                 src:'8-AET.html' },
+    { label:'Precedente militar',  src:'9-otras fuerzas.html' },
+    { label:'Limitaciones',        src:'10-desafios.html' },
+    { label:'Propuesta',           src:'11-Propuesta y próximos pasos.html' }
+  ];
+  var N = SLIDES.length;
+  var STORE = 'esete:linker:deck:v1';
+
+  /* ── Estado persistido: portada, orden y selección. ── */
+  var state = { cover:true, order:range(N), on:range(N) };
+
+  function range(n){
+    var out = [];
+    for (var i = 0; i < n; i++) out.push(i);
+    return out;
+  }
+  function isIndexList(a){
+    if (!Array.isArray(a) || a.length > N) return false;
+    var seen = {};
+    for (var i = 0; i < a.length; i++) {
+      if (typeof a[i] !== 'number' || a[i] % 1 !== 0 || a[i] < 0 || a[i] >= N || seen[a[i]]) return false;
+      seen[a[i]] = true;
+    }
+    return true;
+  }
+  function load(){
+    try {
+      var raw = localStorage.getItem(STORE);
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      if (!s || typeof s !== 'object') return;
+      if (isIndexList(s.order) && s.order.length === N) state.order = s.order.slice();
+      if (isIndexList(s.on)) state.on = s.on.slice();
+      state.cover = s.cover !== false;
+    } catch (e) { /* private mode or blocked storage: keep defaults */ }
+  }
+  function save(){
+    try {
+      localStorage.setItem(STORE, JSON.stringify(state));
+    } catch (e) { /* nothing to do */ }
+  }
+
+  /* ── Panel ── */
+  var panel     = document.getElementById('panel');
+  var rowsEl    = document.getElementById('rows');
+  var countEl   = document.getElementById('count');
+  var presentBtn= document.getElementById('presentBtn');
+  var coverChk  = document.getElementById('coverChk');
+
+  function selected(){
+    return state.order.filter(function(i){ return state.on.indexOf(i) >= 0; });
+  }
+  function total(){
+    return selected().length + (state.cover ? 1 : 0);
+  }
+  function pad(n){ return n < 10 ? '0' + n : String(n); }
+
+  function render(){
+    rowsEl.textContent = '';
+    state.order.forEach(function(idx, pos){
+      var s = SLIDES[idx];
+      var on = state.on.indexOf(idx) >= 0;
+
+      var li = document.createElement('li');
+      li.className = 'row' + (on ? '' : ' is-off');
+      li.dataset.i = String(idx);
+
+      var lab = document.createElement('label');
+      lab.className = 'row-main';
+      var chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.checked = on;
+      chk.addEventListener('change', function(){
+        var at = state.on.indexOf(idx);
+        if (chk.checked && at < 0) state.on.push(idx);
+        if (!chk.checked && at >= 0) state.on.splice(at, 1);
+        save();
+        li.classList.toggle('is-off', !chk.checked);
+        paintCount();
+      });
+
+      var num = document.createElement('span');
+      num.className = 'row-num';
+      num.textContent = pad(pos + 1);
+
+      var txt = document.createElement('span');
+      txt.className = 'row-text';
+      var b = document.createElement('b');
+      b.textContent = s.label;
+      var sm = document.createElement('small');
+      sm.textContent = s.src;
+      txt.appendChild(b);
+      txt.appendChild(sm);
+
+      lab.appendChild(chk);
+      lab.appendChild(num);
+      lab.appendChild(txt);
+
+      var move = document.createElement('div');
+      move.className = 'row-move';
+      move.appendChild(moveBtn(idx, -1, pos === 0, 'Subir ' + s.label));
+      move.appendChild(moveBtn(idx, 1, pos === state.order.length - 1, 'Bajar ' + s.label));
+
+      li.appendChild(lab);
+      li.appendChild(move);
+      rowsEl.appendChild(li);
+    });
+    paintCount();
+  }
+
+  function moveBtn(idx, dir, disabled, label){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.i = String(idx);
+    b.dataset.move = String(dir);
+    b.textContent = dir < 0 ? '▲' : '▼';
+    b.disabled = disabled;
+    b.setAttribute('aria-label', label);
+    b.addEventListener('click', function(){
+      var at = state.order.indexOf(idx);
+      var to = at + dir;
+      if (to < 0 || to >= state.order.length) return;
+      state.order[at] = state.order[to];
+      state.order[to] = idx;
+      save();
+      render();
+      var again = rowsEl.querySelector('button[data-i="' + idx + '"][data-move="' + dir + '"]');
+      if (again) again.focus();
+    });
+    return b;
+  }
+
+  function paintCount(){
+    var picks = selected().length;
+    if (picks === 0) {
+      countEl.textContent = 'Sin láminas';
+      presentBtn.textContent = 'Presentar';
+    } else {
+      countEl.textContent = total() + (total() === 1 ? ' pantalla' : ' pantallas');
+      presentBtn.textContent = 'Presentar · ' + total();
+    }
+    presentBtn.disabled = picks === 0;
+  }
+
+  document.getElementById('allBtn').addEventListener('click', function(){
+    state.on = range(N); save(); render();
+  });
+  document.getElementById('noneBtn').addEventListener('click', function(){
+    state.on = []; save(); render();
+  });
+  document.getElementById('resetBtn').addEventListener('click', function(){
+    state.order = range(N); save(); render();
+    toast('Orden original restaurado');
+  });
+  coverChk.addEventListener('change', function(){
+    state.cover = coverChk.checked; save(); paintCount();
+  });
+
+  /* ── Presentación ── */
+  var KEEP = 4;
+  var screens = [];
+  var LAST = 0;
+  var layers = {};
+  var cur = 0;
+
+  var stage    = document.getElementById('stage');
+  var progress = document.querySelector('#progress i');
+  var counter  = document.getElementById('counter');
+  var label    = document.getElementById('label');
+  var prevBtn  = document.getElementById('prevBtn');
+  var nextBtn  = document.getElementById('nextBtn');
+  var menu     = document.getElementById('menu');
+  var menuList = document.getElementById('menuList');
+  var help     = document.getElementById('help');
+  var black    = document.getElementById('black');
+  var toastEl  = document.getElementById('toast');
+  var tplCover = document.getElementById('tplCover');
+  var toastT   = 0;
+  var hudHidden= false;
+
+  function slice(i){ return Math.max(0, Math.min(LAST, i)); }
+
+  function coverNode(){
+    var el = tplCover.content.firstElementChild.cloneNode(true);
+    el.classList.add('screen');
+
+    var actions = el.querySelector('.cover-actions');
+    var toggle  = el.querySelector('.cover-toggle');
+    toggle.addEventListener('click', function(){
+      var collapsed = actions.classList.toggle('is-collapsed');
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    });
+
+    var hint = el.querySelector('.cover-hint');
+    var docs = screens.length - 1;
+    hint.innerHTML = docs + (docs === 1 ? ' documento · ' : ' documentos · ') +
+      '<kbd>←</kbd><kbd>→</kbd> navegar · <kbd>Espacio</kbd> controles · <kbd>M</kbd> índice';
+
+    el.querySelector('.cover-start').addEventListener('click', function(){ go(1); });
+    return el;
+  }
+
+  function build(i){
+    if (layers[i]) return layers[i];
+    var s = screens[i];
+    if (!s) return null;
+    var el;
+    if (s.src) {
+      el = document.createElement('iframe');
+      el.className = 'screen';
+      el.title = s.label;
+      el.setAttribute('allow', 'fullscreen; autoplay; clipboard-write');
+      el.src = encodeURI(s.src);
+    } else {
+      el = coverNode();
+    }
+    el.dataset.index = String(i);
+    stage.appendChild(el);
+    layers[i] = el;
+    return el;
+  }
+
+  function prune(){
+    Object.keys(layers).forEach(function(k){
+      var i = Number(k);
+      if (i >= cur - 1 && i <= cur + KEEP - 2) return;
+      var el = layers[k];
+      el.classList.remove('is-on');
+      el.remove();
+      delete layers[k];
+    });
+  }
+
+  function paintHud(){
+    progress.style.width = (LAST ? (cur / LAST) * 100 : 0) + '%';
+    counter.textContent = (cur + 1) + ' / ' + screens.length;
+    label.textContent = screens[cur] ? screens[cur].label : '';
+    prevBtn.disabled = cur === 0;
+    nextBtn.disabled = cur === LAST;
+    Array.prototype.forEach.call(menuList.children, function(li, i){
+      li.firstChild.setAttribute('aria-current', i === cur ? 'true' : 'false');
+    });
+  }
+
+  function go(i){
+    i = slice(i);
+    if (i === cur && layers[i] && layers[i].classList.contains('is-on')) return;
+
+    var target = layers[i] || build(i);
+    if (!target) return;
+    var previous = layers[cur];
+
+    target.style.visibility = 'visible';
+    target.style.opacity = '0';
+
+    cur = i;
+
+    /* Double rAF lets the incoming layer paint once before the fade. The timer
+       is a safety net: a hidden tab (or a stalled frame) must not freeze the deck. */
+    var swapped = false;
+    function swap(){
+      if (swapped) return;
+      swapped = true;
+      if (cur !== i) return;
+
+      target.classList.add('is-on');
+      target.style.opacity = '';
+      if (previous && previous !== target) previous.classList.remove('is-on');
+      window.setTimeout(function(){
+        if (!previous || previous === target) return;
+        if (previous.classList.contains('is-on')) return;
+        previous.style.visibility = 'hidden';
+      }, 460);
+      build(i + 1);
+      prune();
+      paintHud();
+    }
+    requestAnimationFrame(function(){ requestAnimationFrame(swap); });
+    window.setTimeout(swap, 140);
+
+    clearToast();
+  }
+
+  function next(){ go(cur + 1); }
+  function prev(){ go(cur - 1); }
+
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('is-on');
+    clearTimeout(toastT);
+    toastT = window.setTimeout(function(){ toastEl.classList.remove('is-on'); }, 1800);
+  }
+  function clearToast(){
+    if (!toastT) return;
+    clearTimeout(toastT);
+    toastT = 0;
+    toastEl.classList.remove('is-on');
+  }
+
+  function openMenu(){ menu.classList.add('is-open'); }
+  function closeMenu(){ menu.classList.remove('is-open'); }
+  function toggleMenu(){ menu.classList.contains('is-open') ? closeMenu() : openMenu(); }
+  function closeOverlays(){ closeMenu(); closeHelp(); }
+  function openHelp(){ help.classList.add('is-open'); }
+  function closeHelp(){ help.classList.remove('is-open'); }
+  function toggleBlack(){ black.classList.toggle('is-on'); }
+  function toggleFull(){
+    if (!document.fullscreenElement) {
+      var el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen().catch(function(){});
+    } else if (document.exitFullscreen) {
+      document.exitFullscreen().catch(function(){});
+    }
+  }
+  function toggleHud(){
+    hudHidden = !hudHidden;
+    document.body.classList.toggle('hud-off', hudHidden);
+  }
+
+  function clearLayers(){
+    Object.keys(layers).forEach(function(k){
+      layers[k].remove();
+    });
+    layers = {};
+  }
+
+  function enterPresent(){
+    if (selected().length === 0) return;
+
+    screens = [];
+    if (state.cover) screens.push({ label:'Portada' });
+    selected().forEach(function(i){
+      screens.push({ label: SLIDES[i].label, src: SLIDES[i].src });
+    });
+    LAST = screens.length - 1;
+    cur = 0;
+    hudHidden = false;
+    document.body.classList.remove('hud-off');
+
+    closeOverlays();
+    black.classList.remove('is-on');
+    clearLayers();
+    stage.textContent = '';
+
+    menuList.textContent = '';
+    screens.forEach(function(s, i){
+      var li = document.createElement('li');
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.innerHTML = '<b>' + (i === 0 ? '00' : ('0' + i).slice(-2)) + '</b><span></span>';
+      b.lastChild.textContent = s.label;
+      b.addEventListener('click', function(){ closeOverlays(); go(i); });
+      li.appendChild(b);
+      menuList.appendChild(li);
+    });
+    menu.querySelector('h2').textContent = 'Índice · ' + screens.length + ' pantallas';
+
+    document.body.classList.remove('mode-panel');
+    document.body.classList.add('mode-present');
+
+    var first = build(0);
+    first.classList.add('is-on');
+    first.style.visibility = 'visible';
+    paintHud();
+    build(1);
+    clearToast();
+  }
+
+  function exitPresent(){
+    closeOverlays();
+    black.classList.remove('is-on');
+    clearLayers();
+    stage.textContent = '';
+    screens = [];
+    LAST = 0;
+    cur = 0;
+    hudHidden = false;
+    document.body.classList.remove('hud-off');
+    document.body.classList.remove('mode-present');
+    document.body.classList.add('mode-panel');
+    render();
+    panel.scrollTop = 0;
+    presentBtn.focus();
+  }
+
+  presentBtn.addEventListener('click', enterPresent);
+  prevBtn.addEventListener('click', prev);
+  nextBtn.addEventListener('click', next);
+  document.getElementById('menuBtn').addEventListener('click', toggleMenu);
+  document.getElementById('fsBtn').addEventListener('click', toggleFull);
+  document.getElementById('exitBtn').addEventListener('click', exitPresent);
+
+  /* Panel: uno solo manejador de teclado, activo solo en presentación. */
+  window.addEventListener('keydown', function(e){
+    if (!document.body.classList.contains('mode-present')) return;
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    switch (e.key) {
+      case 'ArrowRight': case 'ArrowDown': case 'PageDown': case 'n':
+        e.preventDefault(); next(); break;
+      case 'ArrowLeft': case 'ArrowUp': case 'PageUp': case 'p':
+        e.preventDefault(); prev(); break;
+      case ' ': e.preventDefault(); toggleHud(); break;
+      case 'Home': e.preventDefault(); go(0); break;
+      case 'End':  e.preventDefault(); go(LAST); break;
+      case 'm': case 'M': toggleMenu(); break;
+      case 'b': case 'B': toggleBlack(); break;
+      case 'f': case 'F': toggleFull(); break;
+      case '?': openHelp(); break;
+      case 'Escape': closeOverlays(); black.classList.remove('is-on'); break;
+    }
+  }, true);
+
+  /* Las láminas reenvían sus teclas por postMessage: funciona también en file:// */
+  window.addEventListener('message', function(e){
+    var d = e.data;
+    if (!document.body.classList.contains('mode-present')) return;
+    if (!d || typeof d !== 'object' || d.type !== 'deck:nav') return;
+    switch (d.dir) {
+      case 'next': next(); break;
+      case 'prev': prev(); break;
+      case 'first': go(0); break;
+      case 'last': go(LAST); break;
+      case 'menu': toggleMenu(); break;
+      case 'hud': toggleHud(); break;
+      case 'black': toggleBlack(); break;
+      case 'fullscreen': toggleFull(); break;
+    }
+  });
+
+  /* ── Arranque ── */
+  load();
+  coverChk.checked = state.cover;
+  render();
+})();
+</script>
+</body>
+</html>
