@@ -290,6 +290,23 @@ h2{ margin:calc(var(--u)*24px) 0 0; font-family:var(--sans); font-weight:900; le
     transition:opacity .16s ease, color .16s ease, border-color .16s ease; }
   .p3-src select:hover, .p3-src select:focus-visible{ opacity:1; color:var(--gold); border-color:rgba(244,209,113,.45); }
   .p3-src select option{ background:#001326; color:#DFF3FB; }
+  /* Zoom del slot: mismos controles que el visor superior, sobre el modelo. */
+  .p3-zoom{ position:absolute; z-index:5; top:calc(var(--u)*30px); left:calc(var(--u)*8px);
+    display:none; align-items:center; gap:calc(var(--u)*2px); padding:calc(var(--u)*1px);
+    border-radius:calc(var(--u)*99px); background:rgba(0,12,26,.55);
+    border:1px solid rgba(155,211,233,.18); }
+  .panel-photos.p3-on .p3-zoom{ display:flex; }
+  .p3-zoom button{ font-family:var(--mono); font-size:calc(var(--u)*9px); letter-spacing:.1em;
+    text-transform:uppercase; color:rgba(155,211,233,.8); background:none;
+    border:1px solid transparent; border-radius:calc(var(--u)*99px);
+    padding:calc(var(--u)*3px) calc(var(--u)*7px); cursor:pointer; outline:none; white-space:nowrap; }
+  .p3-zoom button:hover{ color:var(--gold); border-color:rgba(244,209,113,.4); }
+  .p3-zoom button:focus-visible{ outline:2px solid rgba(244,209,113,.7); outline-offset:1px; }
+  @media (pointer:coarse){
+    .p3-zoom{ top:calc(var(--u)*34px); }
+    .p3-zoom button{ min-width:44px; min-height:38px; padding:calc(var(--u)*6px) calc(var(--u)*10px); }
+    .p3-src select{ min-height:38px; }
+  }
 </style>
 <script>window.__P3MODE__=(function(){try{var m=localStorage.getItem('esete:mode:slide-02-6');return (m==='both'||m==='world'||m==='photos')?m:null}catch(e){return null}})();</script>
 <style id="edStyle">
@@ -1539,6 +1556,62 @@ h2{ margin:calc(var(--u)*24px) 0 0; font-family:var(--sans); font-weight:900; le
   }
   setMode(window.__P3MODE__||'both');
   showCase(0);                     // arranca en el primer caso, con el globo ya apuntando a su pin
+  /* ---- Zoom del visor: rueda, pinch, botones y «Ajustar» ----
+     Se mueve camera.zoom y no la cámara: no hay que conocer el encuadre de
+     cada lámina y las diez se comportan igual. data-zoom lo lee el QA. */
+  (function(){
+    var ZMIN=.45, ZMAX=4.5, cvs=document.getElementById('c');
+    function setZ(z){
+      camera.zoom=Math.max(ZMIN,Math.min(ZMAX,z));
+      camera.updateProjectionMatrix();
+      if(cvs) cvs.setAttribute('data-zoom',camera.zoom.toFixed(3));
+    }
+    function by(f){ setZ(camera.zoom*f); }
+    function reset(){ setZ(1); }
+    setZ(1);
+
+    if(cvs){
+      cvs.addEventListener('wheel',function(e){
+        e.preventDefault(); by(e.deltaY>0?.88:1.135);
+      },{passive:false});
+
+      var pts={}, d0=0, z0=1;
+      function list(){ return Object.keys(pts).map(function(k){ return pts[k]; }); }
+      function dist(a,b){ var dx=a[0]-b[0], dy=a[1]-b[1]; return Math.sqrt(dx*dx+dy*dy)||1; }
+      cvs.addEventListener('pointerdown',function(e){
+        pts[e.pointerId]=[e.clientX,e.clientY];
+        var p=list();
+        if(p.length===2){ drag=false; d0=dist(p[0],p[1]); z0=camera.zoom; }
+      });
+      cvs.addEventListener('pointermove',function(e){
+        if(!pts[e.pointerId]) return;
+        pts[e.pointerId]=[e.clientX,e.clientY];
+        var p=list(); if(p.length!==2) return;
+        e.preventDefault(); setZ(z0*dist(p[0],p[1])/d0);
+      });
+      function up(e){ delete pts[e.pointerId]; }
+      cvs.addEventListener('pointerup',up); cvs.addEventListener('pointercancel',up);
+    }
+
+    /* Botones en el panel de controles, después de «Del sitio…». */
+    (function(){
+      var list=document.getElementById('ctlList'); if(!list) return;
+      var row=document.createElement('div'); row.className='ctl-row'; row.id='zoomRow';
+      function mk(txt,label,fn){
+        var b=document.createElement('button'); b.type='button'; b.textContent=txt;
+        b.title=label; b.setAttribute('aria-label',label); b.addEventListener('click',fn); return b;
+      }
+      row.appendChild(mk('−','Alejar el modelo',function(){ by(.85); }));
+      row.appendChild(mk('+','Acercar el modelo',function(){ by(1.18); }));
+      row.appendChild(mk('Ajustar','Ajustar el modelo a la pantalla',reset));
+      list.appendChild(row);
+    })();
+
+    /* Un modelo nuevo arranca encuadrado, no heredando el zoom del anterior. */
+    var showBase=showModel;
+    showModel=function(o){ showBase(o); reset(); };
+  })();
+
   requestAnimationFrame(loop);
 })();
 </script>
@@ -1718,8 +1791,7 @@ h2{ margin:calc(var(--u)*24px) 0 0; font-family:var(--sans); font-weight:900; le
 
   cv.addEventListener('wheel',function(e){
     if(!on) return; e.preventDefault();
-    var s=model.scale.x*(1-(e.deltaY>0?.08:-.08));
-    model.scale.setScalar(Math.max(.001,s));
+    zoomBy(e.deltaY>0?.88:1.135);
   },{passive:false});
 
   var lastT=0;
@@ -1779,6 +1851,56 @@ h2{ margin:calc(var(--u)*24px) 0 0; font-family:var(--sans); font-weight:900; le
     });
     wrap.appendChild(sel);
     panel.appendChild(wrap);
+  })();
+
+  /* ---- Zoom del slot: rueda, pinch, botones y «Ajustar» ----
+     Antes la rueda escalaba model.scale sin tope y el modelo se perdía.
+     Con camera.zoom «Ajustar» vuelve exacto al encuadre de fit(). */
+  var ZMIN=.45, ZMAX=4.5;
+  function setSlotZoom(z){
+    if(!gl||!camera) return;
+    camera.zoom=Math.max(ZMIN,Math.min(ZMAX,z));
+    camera.updateProjectionMatrix();
+    cv.setAttribute('data-zoom',camera.zoom.toFixed(3));
+  }
+  function zoomBy(f){ setSlotZoom((gl&&camera?camera.zoom:1)*f); }
+  function zoomReset(){ setSlotZoom(1); fit(); }
+
+  (function(){
+    var wrap=document.createElement('div'); wrap.className='p3-zoom'; wrap.id='p3Zoom';
+    function mk(txt,label,fn){
+      var b=document.createElement('button'); b.type='button'; b.textContent=txt;
+      b.title=label; b.setAttribute('aria-label',label); b.addEventListener('click',fn); return b;
+    }
+    wrap.appendChild(mk('−','Alejar el modelo',function(){ zoomBy(.85); }));
+    wrap.appendChild(mk('+','Acercar el modelo',function(){ zoomBy(1.18); }));
+    wrap.appendChild(mk('Ajustar','Ajustar el modelo a la pantalla',function(){ zoomReset(); }));
+    panel.appendChild(wrap);
+  })();
+
+  (function(){
+    var pts={}, d0=0, z0=1;
+    function list(){ return Object.keys(pts).map(function(k){ return pts[k]; }); }
+    function dist(a,b){ var dx=a[0]-b[0], dy=a[1]-b[1]; return Math.sqrt(dx*dx+dy*dy)||1; }
+    cv.addEventListener('pointerdown',function(e){
+      pts[e.pointerId]=[e.clientX,e.clientY];
+      var p=list();
+      if(p.length===2){ drag=null; d0=dist(p[0],p[1]); z0=camera?camera.zoom:1; }
+    });
+    cv.addEventListener('pointermove',function(e){
+      if(!pts[e.pointerId]) return;
+      pts[e.pointerId]=[e.clientX,e.clientY];
+      var p=list(); if(p.length!==2) return;
+      e.preventDefault(); setSlotZoom(z0*dist(p[0],p[1])/d0);
+    });
+    function up(e){ delete pts[e.pointerId]; }
+    cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
+  })();
+
+  /* Un modelo nuevo vuelve a su encuadre de fit(). */
+  (function(){
+    var placeBase=place;
+    place=function(obj,name,persist){ placeBase(obj,name,persist); setSlotZoom(1); };
   })();
 
   try{ dbGet().then(function(rec){ if(rec&&rec.buffer) loadBuffer(rec.buffer,rec.name,null); }).catch(function(){}); }catch(e){}
