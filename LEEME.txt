@@ -66,8 +66,11 @@ LÁMINA 7 (SIMULADOR)
     Tocar una pieza la inspecciona y arrastrarla la lleva al fantasma ámbar.
   • Para correr el modelo y sacarlo de atrás de la tarjeta: arrastrá con dos
     dedos, o activá ✥ (arriba a la derecha) y arrastrá con un dedo.
-  • La tarjeta de la pieza es una franja con el nombre. Tocala para ver P/N,
-    inspeccionar y girar; se vuelve a plegar sola cuando movés el modelo.
+  • La tarjeta de la pieza es una franja con la lupa y el nombre. Al tocarla
+    muestra P/N y, en la llave, "Modificar valores".
+  • Los botones para girar la pieza están en un bloque aparte, al lado de la
+    ficha (o debajo en un teléfono vertical), siempre ligados a la pieza que
+    tengas seleccionada. Plegar la ficha no los esconde.
   • Sobre el modelo el gesto es del simulador, así que para cambiar de lámina
     usá las flechas ← → del borde o la ficha de controles del deck.
 

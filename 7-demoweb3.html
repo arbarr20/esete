@@ -38,6 +38,13 @@ button{background:#1f2a37;color:var(--tx);border:1px solid #35475a;border-radius
 .card-tog:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:6px}
 .card-body{margin-top:6px}
 .card-body[hidden]{display:none}
+.card-tog i:first-child{margin-left:0;margin-right:0;font-size:13px}
+.card-tog span{flex:1 1 auto;min-width:0}
+/* ── Controles de la pieza: bloque propio, no dentro de la ficha ─────── */
+#pctl{display:flex;flex-wrap:wrap;gap:4px;padding:6px;border-radius:12px;
+  background:var(--panel);border:1px solid #2b3846}
+#pctl[hidden]{display:none}
+#pctl .rb{min-width:40px}
 /* ── Mover el modelo: mueve la vista, la mesa queda ──────────────────── */
 #moveBtn{position:absolute;z-index:7;top:calc(8px + env(safe-area-inset-top,0px));left:50%;
   transform:translateX(-50%);width:44px;height:44px;padding:0;margin:0;display:grid;place-items:center;
@@ -75,7 +82,12 @@ button{background:#1f2a37;color:var(--tx);border:1px solid #35475a;border-radius
   #steps ol{font-size:13.5px;line-height:1.65}
   .hint{font-size:12.5px !important}
   #side{top:auto;left:8px;right:8px;width:auto;max-width:none;gap:10px;
+    flex-direction:row;flex-wrap:wrap;align-items:flex-end;
     bottom:calc(84px + env(safe-area-inset-bottom,0px));max-height:44vh;overflow:auto}
+  #side #hud{flex:1 0 100%}
+  #side #card{flex:1 1 45%;min-width:0}
+  #pctl{flex:0 1 auto}
+  #pctl .rb{min-width:44px}
   #side .p{font-size:13.5px}
   #bar{height:28px}
   .rb{min-width:46px;font-size:16px}
@@ -95,7 +107,8 @@ button{background:#1f2a37;color:var(--tx);border:1px solid #35475a;border-radius
 </style></head><body>
 <details id="steps" class="p" open><summary><span id="stepNow">Paso 1 / 7</span></summary><h1>Instalación tapón detector de virutas (MGB)</h1><ol id="ol"></ol><p class="hint" style="margin:8px 0 0;font-size:11px;color:var(--mu)">Toca una pieza para inspeccionarla y arrástrala hasta el fantasma ámbar. Arrastra el fondo para girar la vista; con dos dedos acercás o alejás. Mantén pulsada una pieza o el tapón cuando el paso lo pida. Con teclado: Q/E/W/S/A/D y rueda.</p><div><button id="zi">+ Acercar</button> <button id="zo">− Alejar</button> <button id="rst" onclick="location.reload()">↻ Reiniciar</button><br><button id="bplay" onclick="location.hash='auto';location.reload()">▶ Reproducir</button> <button id="bman" onclick="if(auto){location.hash='';location.reload()}else msg('Modo manual activo.')">✋ Manual</button></div></details>
 <div id="side"><div class="p" id="hud" style="display:none">Torque: <b id="tq">0.0</b> N·m<br>Valor de la llave: <b id="pv">35</b> N·m<div id="bar"><div id="fill"></div><div id="zone"></div></div></div>
-<div class="p" id="card"></div></div>
+<div class="p" id="card"></div>
+<div id="pctl" role="group" aria-label="Controles de la pieza seleccionada" hidden></div></div>
 <div id="msg" class="p"></div><button id="fin" onclick="finish()">✔ Terminar</button>
 <button id="moveBtn" type="button" aria-pressed="false" title="Mover el modelo en pantalla" aria-label="Mover el modelo en pantalla">✥</button>
 <div id="decknav"><button id="dnPrev" type="button" aria-label="Lámina anterior">←</button><button id="dnNext" type="button" aria-label="Lámina siguiente">→</button></div>
@@ -229,22 +242,29 @@ let cardOpen=!matchMedia('(max-width:900px), (pointer:coarse)').matches,moveMode
 const t0=performance.now(),tgt=V(0,.2,.8),DEF=V(0,.2,.8);
 function msg(t,c){const e=$('msg');e.textContent=t;e.style.color=c||''}
 function ui(){[...ol.children].forEach((l,i)=>l.className=i<step?'done':i==step?'cur':'');$('stepNow').textContent=step>=ST.length?'Listo':'Paso '+(step+1)+' / '+ST.length;$('tq').textContent=torque.toFixed(1);$('pv').textContent=wr.userData.preset;$('zone').style.left=(wr.userData.preset-3.5)/40*100+'%';$('fill').style.width=Math.min(100,torque/40*100)+'%';const inS=torque>0&&Math.abs(torque-wr.userData.preset)<=3.5;$('fill').style.background=inS?'var(--ok)':'var(--ac)';$('zone').style.background=inS?'rgba(62,207,142,.5)':'rgba(255,255,255,.35)';$('zone').style.borderColor=inS?'var(--ok)':'#fff';$('hud').style.display=step==3&&!done?'block':'none'}
-function next(){step++;sub=0;if(step>=ST.length){msg('Corte realizado. Revisa el trabajo y pulsa «Terminar».','var(--ok)');$('fin').style.display='block'}else msg(MS[step]);ui()}
+function next(){step++;sub=0;if(step>=ST.length){msg('Corte realizado. Revisa el trabajo y pulsa «Terminar».','var(--ok)');$('fin').style.display='block'}else msg(MS[step]);ui();paintPctl()}
 msg(MS[0]);ui();
 /* En tableta y teléfono el panel arranca plegado: la escena manda. */
 if(matchMedia('(max-width:900px), (pointer:coarse)').matches){const st=$('steps');if(st)st.open=false}
 const AX=V(1,0,0),AY=V(0,1,0),AZ=V(0,0,1),shellM=new THREE.MeshBasicMaterial({color:0x3ecf8e,side:THREE.BackSide,transparent:true,opacity:.75});
-const CTL='<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px"><button class="rb" data-a="yl">\u21ba</button><button class="rb" data-a="yr">\u21bb</button><button class="rb" data-a="pu">\u2912</button><button class="rb" data-a="pd">\u2913</button><button class="rb" data-a="rl">\u27f2</button><button class="rb" data-a="rr">\u27f3</button><button class="rb" data-a="home">\u2302 Devolver</button></div><div style="font-size:11px;margin-top:4px">Girar: botones, Q/E W/S A/D, rueda o clic derecho al sostener.</div>';
+const CTL='<button class="rb" data-a="yl">\u21ba</button><button class="rb" data-a="yr">\u21bb</button><button class="rb" data-a="pu">\u2912</button><button class="rb" data-a="pd">\u2913</button><button class="rb" data-a="rl">\u27f2</button><button class="rb" data-a="rr">\u27f3</button><button class="rb" data-a="home">\u2302 Devolver</button>';
+/* Los controles de la pieza viven en su propio bloque, no dentro de la
+   ficha: plegar la inspección no esconde cómo girarla. */
+function paintPctl(){
+ const box=$('pctl');if(!box)return;
+ const u=sel&&sel.userData,on=!!(u&&u.drag&&!u.locked);
+ box.hidden=!on;
+ if(!on){box.textContent='';return}
+ box.innerHTML=CTL;
+ box.querySelectorAll('.rb').forEach(x=>{x.onclick=()=>rotBtn(x.dataset.a)});
+}
 function wInfo(u){const ok=u.preset==25,c=ok?'var(--ok)':'var(--tx)';return `Valor ajustado: <b style="color:${c}">${u.preset} N·m</b><br>Calibrado hasta: <b style="color:${c}">${u.date}</b>${ok?' ✔':(tqBad?'<br><span style="color:var(--bad)">Valores bloqueados tras sobretorque: reinicia el proceso.</span>':'<br><button id="bm">⚙ Modificar valores</button>')}`}
-function card(){const c=$('card');if(!sel){c.style.display='none';return}const u=sel.userData;c.style.display='block';
- const head=u.inspected
-  ?`<button class="card-tog" id="cardTog" type="button" aria-expanded="${cardOpen}" aria-controls="cardBody"><span>${u.name}</span><i aria-hidden="true">${cardOpen?'⌃':'⌄'}</i></button>`
-  :`<button class="card-tog" id="bi" type="button"><span>Pieza sin identificar</span><i aria-hidden="true">🔍</i></button>`;
- let body=u.inspected?(`P/N: <code>${u.pn}</code>`+(u.id=='wrench'?wInfo(u):`<div style="color:var(--ok);margin-top:4px">✔ ${u.state}</div>`)):'';
- if(u.drag&&!u.locked)body+=CTL;
+function card(){paintPctl();const c=$('card');if(!sel){c.style.display='none';return}const u=sel.userData;c.style.display='block';
+ const head=`<button class="card-tog" id="cardTog" type="button" aria-expanded="${cardOpen}" aria-controls="cardBody"><i aria-hidden="true">🔍</i><span>${u.inspected?u.name:'Pieza sin identificar'}</span><i aria-hidden="true">${cardOpen?'⌃':'⌄'}</i></button>`;
+ const body=u.inspected?(`P/N: <code>${u.pn}</code>`+(u.id=='wrench'?wInfo(u):`<div style="color:var(--ok);margin-top:4px">✔ ${u.state}</div>`)):'';
  c.innerHTML=head+(u.inspected?`<div class="card-body" id="cardBody"${cardOpen?'':' hidden'}>${body}</div>`:'');
- const t=$('cardTog');if(t)t.onclick=()=>{cardOpen=!cardOpen;card()};
- c.querySelectorAll('.rb').forEach(x=>{x.onclick=()=>rotBtn(x.dataset.a)});const b=$('bi');if(b)b.onclick=()=>{u.inspected=true;card()};const m=$('bm');if(m)m.onclick=()=>{if(tqBad)return;u.preset=25;u.date='30-09-2027';card();ui();msg('Llave ajustada a 25 N·m y calibración 30-09-2027.','var(--ok)')}}
+ const t=$('cardTog');if(t)t.onclick=()=>{if(!u.inspected){u.inspected=true;cardOpen=true}else{cardOpen=!cardOpen}card()};
+ const m=$('bm');if(m)m.onclick=()=>{if(tqBad)return;u.preset=25;u.date='30-09-2027';card();ui();msg('Llave ajustada a 25 N·m y calibración 30-09-2027.','var(--ok)')}}
 function select(it){if(sel&&sel.userData.sh)sel.userData.sh.forEach(s=>s.visible=false);sel=it;
  if(it){if(!it.userData.sh){const ms=[];it.traverse(o=>{if(o.isMesh&&!o.userData.shell)ms.push(o)});it.userData.sh=ms.map(o=>{const s=new THREE.Mesh(o.geometry,shellM);s.userData.shell=true;s.scale.setScalar(1.08);o.add(s);return s})}it.userData.sh.forEach(s=>s.visible=true)}
  card()}
@@ -332,7 +352,7 @@ function up(e){if(e&&e.pointerId!==undefined){pts.delete(e.pointerId);if(pts.siz
   else if(!moved&&holdT<.3&&tapIt)select(tapIt);hold=false}
  else if(mode=='orbit'&&!moved){select(tapIt)}
  else if(mode=='pan'&&!moved&&tapIt){select(tapIt)}
- orbit=false;mode='';hold=false}
+ orbit=false;mode='';hold=false;paintPctl()}
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 cv.addEventListener('wheel',e=>{e.preventDefault();if(drag)drag.it.rotateOnWorldAxis(AY,e.deltaY*.004);else setDist(uDist+e.deltaY*.01)},{passive:false});
 cv.addEventListener('contextmenu',e=>e.preventDefault());addEventListener('keydown',e=>{const m={q:'yl',e:'yr',w:'pu',s:'pd',a:'rl',d:'rr'}[e.key.toLowerCase()];if(m)rotBtn(m)});
