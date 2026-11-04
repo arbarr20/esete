@@ -42,3 +42,18 @@ IMPORTANTE
   • Una lámina que no traiga el puente de teclado embebido se ve igual, pero las
     teclas apretadas con el foco adentro no pasan al deck. Los botones del borde
     inferior siempre funcionan.
+
+EN GITHUB PAGES
+  El sitio público es https://arbarr20.github.io/esete/ y abre el concentrador.
+  Se publica esta carpeta tal cual: linker.html, las láminas, LEEME.txt y
+  recursos/. Todas las referencias son relativas, así que funcionan igual que
+  acá.
+
+  Para republicar después de un cambio:
+    git subtree push --prefix presentacion site main
+
+  Dos cosas cambian en el sitio publicado:
+  • «Agregar lámina» y «Escanear carpeta» no suben nada. El HTML tiene que estar
+    en el repo; si no, la lámina queda en blanco.
+  • Editar una lámina con Ctrl+S descarga un archivo para reemplazar: el servidor
+    no se puede escribir desde el navegador.
