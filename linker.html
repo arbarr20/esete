@@ -160,60 +160,40 @@
   }
   .screen.is-on{ opacity:1; visibility:visible; pointer-events:auto; }
 
-  /* ── Portada (pantalla 0) — idéntica al deck original ── */
+  /* ── Portada (pantalla 0) ── */
+  /* El arte mide 1024x576 y ahora es el protagonista: ocupa la pantalla entera,
+     sin fundido ni velo que lo apague. --art-* es el recuadro exacto que ocupa
+     la imagen (siempre cubre la ventana); --burst-* es el punto del PNG donde
+     nace la luz —499,346 de 1024x576— y el escudo apoya ahí su base, no su caja. */
   .cover{
     overflow:hidden;
-    --art-h:min(72vh, 576px, calc(100vw * 9 / 16));
+    --art-h:max(100vh, calc(100vw * 9 / 16));
     --art-w:calc(var(--art-h) * 16 / 9);
-    --art-lift:clamp(90px, 15vh, 190px);
+    --art-x:calc(50vw - var(--art-w) / 2);
+    --art-y:calc(50vh - var(--art-h) / 2);
+    --burst-x:calc(var(--art-x) + var(--art-w) * .4873);
+    --burst-y:calc(var(--art-y) + var(--art-h) * .6007);
+    --esc-w:min(48vw, 86vh);
+    --esc-h:calc(var(--esc-w) * 359 / 639);
     background:radial-gradient(ellipse 72% 86% at 50% 78%,
       #07314f 0%, #041f38 46%, #001326 74%, #000d1a 100%);
   }
-  .cover-bloom{
-    position:absolute; left:50%; bottom:var(--art-lift);
+  .cover-bg{
+    position:absolute;
+    left:var(--art-x); top:var(--art-y);
     width:var(--art-w); height:var(--art-h);
-    transform:translateX(-50%) scale(1.45);
-    transform-origin:50% 100%;
-    background:radial-gradient(ellipse 52% 58% at 50% 100%,
-      rgba(24,120,170,.45) 0%, rgba(6,47,78,.26) 45%, rgba(0,19,38,0) 100%);
-    filter:blur(30px);
+    background:url('recursos/diap-titulo.png') no-repeat center / 100% 100%;
+    filter:saturate(1.1) contrast(1.03);
     pointer-events:none;
   }
-  .cover-bg{
-    position:absolute; inset:0;
-    background:url('recursos/diap-titulo.png') no-repeat;
-    background-size:var(--art-w) var(--art-h);
-    background-position:50% calc(100% - var(--art-lift));
-    background-color:transparent;
-    -webkit-mask-image:
-      linear-gradient(to right,
-        transparent calc(50% - var(--art-w) / 2),
-        #000 calc(50% - var(--art-w) / 2 + 150px),
-        #000 calc(50% + var(--art-w) / 2 - 150px),
-        transparent calc(50% + var(--art-w) / 2)),
-      linear-gradient(to bottom,
-        transparent calc(100% - var(--art-lift) - var(--art-h)),
-        #000 calc(100% - var(--art-lift) - var(--art-h) + 150px),
-        #000 calc(100% - var(--art-lift) - 140px),
-        transparent calc(100% - var(--art-lift)));
-    -webkit-mask-composite:source-in;
-    mask-image:
-      linear-gradient(to right,
-        transparent calc(50% - var(--art-w) / 2),
-        #000 calc(50% - var(--art-w) / 2 + 150px),
-        #000 calc(50% + var(--art-w) / 2 - 150px),
-        transparent calc(50% + var(--art-w) / 2)),
-      linear-gradient(to bottom,
-        transparent calc(100% - var(--art-lift) - var(--art-h)),
-        #000 calc(100% - var(--art-lift) - var(--art-h) + 150px),
-        #000 calc(100% - var(--art-lift) - 140px),
-        transparent calc(100% - var(--art-lift)));
-    mask-composite:intersect;
-  }
   .cover-escudo{
-    position:absolute; left:50%; top:12%; transform:translateX(-50%);
-    width:min(48vw, 86vh); height:auto; user-select:none; -webkit-user-drag:none;
-    filter:drop-shadow(0 24px 60px rgba(0,0,0,.45));
+    position:absolute; transform:translateX(-50%);
+    left:calc(var(--burst-x) + var(--esc-w) * .0008);
+    /* El dibujo del PNG termina al 77.16% de su alto: se sube para que esa base
+       quede justo sobre el punto de luz. */
+    top:calc(var(--burst-y) - var(--esc-h) * .7716);
+    width:var(--esc-w); height:auto; user-select:none; -webkit-user-drag:none;
+    filter:drop-shadow(0 18px 44px rgba(0,0,0,.55));
     animation:coverIn .9s ease both;
   }
   @keyframes coverIn{ from{ opacity:0; transform:translateX(-50%) translateY(10px) scale(.985); } to{ opacity:1; transform:translateX(-50%) translateY(0) scale(1); } }
@@ -340,7 +320,7 @@
 
   @media (max-width:760px){
     #label{ display:none; }
-    .cover-escudo{ width:min(78vw, 62vh); top:9%; }
+    .cover{ --esc-w:min(78vw, 62vh); }
   }
   @media (prefers-reduced-motion:reduce){
     .screen{ transition:none; }
@@ -433,7 +413,6 @@
 <!-- Plantilla de portada: se clona solo cuando la selección la incluye. -->
 <template id="tplCover">
   <section class="screen cover" aria-label="Portada">
-    <div class="cover-bloom"></div>
     <div class="cover-bg"></div>
     <img class="cover-escudo" src="recursos/escudo-v-color.png" alt="Fuerza Aeroespacial Colombiana">
     <div class="cover-actions">
