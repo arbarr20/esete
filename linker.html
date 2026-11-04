@@ -283,7 +283,17 @@
   #bar{
     right:calc(24px + env(safe-area-inset-right, 0px));
     bottom:calc(20px + env(safe-area-inset-bottom, 0px));
+    touch-action:none; cursor:grab; transition:opacity .22s ease, padding .18s ease;
   }
+  #bar.is-drag{ cursor:grabbing; transition:none; }
+  /* Plegada es una ficha chica: no tapa la tarjeta de abajo ni el visor. */
+  #bar.is-min{ padding:0; gap:0; border-radius:50%; border-color:rgba(155,211,233,.16); }
+  #bar.is-min > :not(#hudToggle){ display:none; }
+  #bar.is-min #hudToggle{
+    width:44px; height:44px; padding:0; border-radius:50%;
+    font-size:17px; line-height:1; display:grid; place-items:center;
+  }
+  #hudToggle{ font-size:15px; letter-spacing:0; }
   @media (pointer:coarse){
     #bar{ gap:6px; padding:8px 10px; }
     #bar button{ min-width:44px; min-height:44px; padding:12px 15px; font-size:13px; }
@@ -400,6 +410,7 @@
 
 <div id="hud">
   <div id="bar">
+    <button id="hudToggle" type="button" aria-label="Mostrar u ocultar los controles" aria-expanded="false" title="Controles · se puede arrastrar">⋯</button>
     <button id="prevBtn" type="button" aria-label="Pantalla anterior">←</button>
     <span id="counter">1 / 1</span>
     <button id="nextBtn" type="button" aria-label="Pantalla siguiente">→</button>
@@ -881,7 +892,7 @@ var SEED_SLIDES = [
      o un control, el gesto es del visor y no del deck.
      Bajo file:// el navegador trata el iframe como origen opaco y no hay
      contentDocument: ahí siguen la barra y las flechas. ── */
-  var TOUCH_BLOCK = 'canvas, button, input, select, textarea, a, [contenteditable], #edBar, #p3Rot, #p3Zoom, .ctl, .modes, .p3-src';
+  var TOUCH_BLOCK = '#c, #p3, button, input, select, textarea, a, [contenteditable], #edBar, #p3Rot, #p3Zoom, .ctl, .modes, .p3-src';
 
   function swipeOn(doc){
     var x0 = 0, y0 = 0, t0 = 0, on = false;
@@ -1148,6 +1159,85 @@ var SEED_SLIDES = [
       case 'fullscreen': toggleFull(); break;
     }
   });
+
+  /* ── Ficha de controles: plegable y arrastrable ────────────────────────
+     En una tableta la barra tapaba la tarjeta de abajo y no había forma de
+     correrla. Arranca plegada en una ficha de 44 px, se abre con un toque y
+     se arrastra a cualquier parte; posición y estado se recuerdan, y se
+     recortan al área visible para que no quede afuera al rotar. */
+  (function(){
+    var bar = document.getElementById('bar');
+    var tog = document.getElementById('hudToggle');
+    if (!bar || !tog) return;
+    var KEY = 'esete:hud', MIN = true, drag = null, quiet = false;
+
+    function save(){
+      try {
+        localStorage.setItem(KEY, JSON.stringify({
+          min: MIN, x: parseFloat(bar.style.left), y: parseFloat(bar.style.top)
+        }));
+      } catch (e) {}
+    }
+    function paint(){
+      bar.classList.toggle('is-min', MIN);
+      tog.setAttribute('aria-expanded', MIN ? 'false' : 'true');
+      tog.textContent = MIN ? '⋯' : '⌄';
+      tog.setAttribute('aria-label', MIN ? 'Mostrar los controles' : 'Ocultar los controles');
+    }
+    function place(x, y){
+      var m = 8, w = bar.offsetWidth || 44, h = bar.offsetHeight || 44;
+      var maxX = Math.max(m, window.innerWidth - w - m);
+      var maxY = Math.max(m, window.innerHeight - h - m);
+      bar.style.left = Math.round(Math.max(m, Math.min(maxX, x))) + 'px';
+      bar.style.top  = Math.round(Math.max(m, Math.min(maxY, y))) + 'px';
+      bar.style.right = 'auto'; bar.style.bottom = 'auto';
+    }
+    function setMin(v){ MIN = v; paint(); save(); }
+
+    tog.addEventListener('click', function(e){ e.preventDefault(); setMin(!MIN); });
+
+    /* Arrastre con umbral: un toque abre o cierra, un movimiento mueve. */
+    bar.addEventListener('pointerdown', function(e){
+      if (e.button) return;
+      var r = bar.getBoundingClientRect();
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, ox: r.left, oy: r.top, moved: false };
+    });
+    bar.addEventListener('pointermove', function(e){
+      if (!drag || e.pointerId !== drag.id) return;
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 6) return;
+      if (!drag.moved){
+        drag.moved = true;
+        bar.classList.add('is-drag');
+        try { bar.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      place(drag.ox + dx, drag.oy + dy);
+    });
+    function end(e){
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      var moved = drag.moved;
+      drag = null;
+      bar.classList.remove('is-drag');
+      if (moved){ quiet = true; setTimeout(function(){ quiet = false; }, 80); save(); }
+    }
+    bar.addEventListener('pointerup', end);
+    bar.addEventListener('pointercancel', end);
+    /* Después de arrastrar, el click que sigue no debe pulsar un botón. */
+    bar.addEventListener('click', function(e){
+      if (!quiet) return;
+      e.preventDefault(); e.stopPropagation();
+    }, true);
+
+    try {
+      var st = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (st && typeof st.min === 'boolean') MIN = st.min;
+      if (st && isFinite(st.x) && isFinite(st.y)) place(st.x, st.y);
+    } catch (e) {}
+    paint();
+    addEventListener('resize', function(){
+      if (bar.style.left) place(parseFloat(bar.style.left), parseFloat(bar.style.top));
+    });
+  })();
 
   /* ── Arranque ── */
   if (isStandalone()) document.body.classList.add('is-standalone');

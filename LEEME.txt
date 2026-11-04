@@ -34,9 +34,13 @@ ATAJOS EN PRESENTACIÓN
   ?          ayuda       Esc  cerrar
 
 DESDE UN IPAD SIN TECLADO
-  • Tocá los botones ← → de la barra inferior: son grandes (44 px) a propósito.
-    También podés deslizar el dedo en horizontal sobre la lámina.
-  • El deslizamiento no navega si arranca sobre un visor 3D o sobre un control:
+  • Los mandos viven en una ficha redonda "⋯" abajo a la derecha. Arranca
+    plegada para no tapar la tarjeta de fotos; un toque la abre (← → índice
+    ⛶ Salir) y otro toque la vuelve a plegar.
+  • Arrastrá la ficha para ponerla donde quieras: se queda ahí, también después
+    de recargar, y nunca se sale de la pantalla. Arrastrarla no la abre.
+  • Además de la ficha, podés deslizar el dedo en horizontal sobre la lámina.
+    El deslizamiento no navega si arranca sobre un visor 3D o sobre un control:
     ahí el gesto le pertenece al modelo.
   • ⛶ pide pantalla completa. Si el iPad no la concede, agregá el sitio a la
     pantalla de inicio (Compartir → "Agregar a pantalla de inicio") y abrilo
@@ -47,6 +51,9 @@ MODELOS 3D
   • Con un modelo cargado, acercá y alejá con la rueda, con dos dedos sobre el
     visor, o con los botones − / +. "Ajustar" vuelve al encuadre que entra en
     pantalla. Vale igual para el visor grande y para la tarjeta de fotos.
+  • En la tarjeta de fotos esos controles están plegados junto al botón de
+    rotación (el ícono circular): al abrirlo aparecen el zoom y "Ajustar", y no
+    queda nada fijo tapando la tarjeta.
 
 IMPORTANTE
   • Las láminas 3D cargan three.js desde internet. Sin conexión, el resto de la
