@@ -29,6 +29,23 @@ button{background:#1f2a37;color:var(--tx);border:1px solid #35475a;border-radius
 #tcont{background:var(--ac)}
 #rep{left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,92vw);max-height:84vh;overflow:auto;display:none;font-size:13px}
 #rep h2{margin:0 0 8px;color:var(--ok)}#rep li{margin:4px 0}
+/* ── Tarjeta de pieza: píldora plegable ──────────────────────────────── */
+.card-tog{display:flex;align-items:center;gap:8px;width:100%;margin:0;padding:2px 0;min-height:26px;
+  background:none;border:0;color:var(--tx);font:inherit;text-align:left;cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+.card-tog span{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-tog i{font-style:normal;margin-left:auto;color:var(--mu);font-size:13px}
+.card-tog:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:6px}
+.card-body{margin-top:6px}
+.card-body[hidden]{display:none}
+/* ── Mover el modelo: mueve la vista, la mesa queda ──────────────────── */
+#moveBtn{position:absolute;z-index:7;top:calc(8px + env(safe-area-inset-top,0px));left:50%;
+  transform:translateX(-50%);width:44px;height:44px;padding:0;margin:0;display:grid;place-items:center;
+  font-size:18px;line-height:1;color:var(--mu);background:rgba(20,27,36,.6);
+  border:1px solid rgba(53,71,90,.6);border-radius:12px;cursor:pointer;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#moveBtn[aria-pressed="true"]{color:#06210f;background:var(--ac);border-color:transparent}
+#moveBtn:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 /* ── Panel de pasos plegable ─────────────────────────────────────────── */
 #steps summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;
   color:var(--ac);list-style:none;outline:none;-webkit-tap-highlight-color:transparent}
@@ -68,9 +85,11 @@ button{background:#1f2a37;color:var(--tx);border:1px solid #35475a;border-radius
     padding:14px;border-radius:12px}
   #rep{left:8px;right:8px;top:8px;bottom:8px;width:auto;max-height:none;transform:none}
   #decknav button{width:46px;height:76px}
+  #moveBtn{left:auto;right:8px;transform:none;
+    top:calc(8px + env(safe-area-inset-top,0px))}
 }
 @media (max-width:480px){
-  #steps{max-height:58vh}
+  #steps{max-height:58vh;width:min(264px,calc(100vw - 96px))}
   #side{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
 }
 </style></head><body>
@@ -78,6 +97,7 @@ button{background:#1f2a37;color:var(--tx);border:1px solid #35475a;border-radius
 <div id="side"><div class="p" id="hud" style="display:none">Torque: <b id="tq">0.0</b> N·m<br>Valor de la llave: <b id="pv">35</b> N·m<div id="bar"><div id="fill"></div><div id="zone"></div></div></div>
 <div class="p" id="card"></div></div>
 <div id="msg" class="p"></div><button id="fin" onclick="finish()">✔ Terminar</button>
+<button id="moveBtn" type="button" aria-pressed="false" title="Mover el modelo en pantalla" aria-label="Mover el modelo en pantalla">✥</button>
 <div id="decknav"><button id="dnPrev" type="button" aria-label="Lámina anterior">←</button><button id="dnNext" type="button" aria-label="Lámina siguiente">→</button></div>
 <div id="rep" class="p"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -204,6 +224,8 @@ const ST=['Colocar O-ring nuevo en el tapón','Posicionar el tapón en el puerto
 const MS=['Arrastra el O-ring hasta la ranura del tapón. Sigue el fantasma ámbar: se pega si lo sueltas cerca.','Arrastra el tapón hasta el puerto del reductor.','Mantén pulsado sobre el tapón para roscarlo a mano.','Arrastra la llave sobre el tapón; luego mantén pulsado y suelta cuando alcance el torque correcto.','Arrastra el alambre al agujero del TAPÓN (1/2). Debe quedar tenso y tirar en sentido de apriete.','Arrastra los alicates trenzadores sobre el alambre y mantén pulsado para trenzar.','Toma los alicates de corte, llévalos al extremo del alambre y toca la punta para cortar el sobrante.'];
 const ol=$('ol');ST.forEach(s=>{const l=document.createElement('li');l.textContent=s;ol.appendChild(l)});
 let step=0,sub=0,hold=false,holdT=0,depth=0,torque=0,prog=0,done=false,sel=null,fSnap=0,fTq=0,drag=null,orbit=false,mode='',tapIt=null,sx=0,sy=0,moved=false,lx=0,ly=0,th=0,ph=.95,uDist=innerWidth/innerHeight<1.2?26:17,cDist=uDist,cutting=false,cutT=0,snipped=false,cutP=null,vy=0,vx=0,vz=0,binned=false,binIn=false,tqBad=0,auto=location.hash=='#auto',autoMove=null;
+/* La tarjeta de pieza arranca plegada en táctil: la escena manda. */
+let cardOpen=!matchMedia('(max-width:900px), (pointer:coarse)').matches,moveMode=false;
 const t0=performance.now(),tgt=V(0,.2,.8),DEF=V(0,.2,.8);
 function msg(t,c){const e=$('msg');e.textContent=t;e.style.color=c||''}
 function ui(){[...ol.children].forEach((l,i)=>l.className=i<step?'done':i==step?'cur':'');$('stepNow').textContent=step>=ST.length?'Listo':'Paso '+(step+1)+' / '+ST.length;$('tq').textContent=torque.toFixed(1);$('pv').textContent=wr.userData.preset;$('zone').style.left=(wr.userData.preset-3.5)/40*100+'%';$('fill').style.width=Math.min(100,torque/40*100)+'%';const inS=torque>0&&Math.abs(torque-wr.userData.preset)<=3.5;$('fill').style.background=inS?'var(--ok)':'var(--ac)';$('zone').style.background=inS?'rgba(62,207,142,.5)':'rgba(255,255,255,.35)';$('zone').style.borderColor=inS?'var(--ok)':'#fff';$('hud').style.display=step==3&&!done?'block':'none'}
@@ -215,8 +237,14 @@ const AX=V(1,0,0),AY=V(0,1,0),AZ=V(0,0,1),shellM=new THREE.MeshBasicMaterial({co
 const CTL='<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px"><button class="rb" data-a="yl">\u21ba</button><button class="rb" data-a="yr">\u21bb</button><button class="rb" data-a="pu">\u2912</button><button class="rb" data-a="pd">\u2913</button><button class="rb" data-a="rl">\u27f2</button><button class="rb" data-a="rr">\u27f3</button><button class="rb" data-a="home">\u2302 Devolver</button></div><div style="font-size:11px;margin-top:4px">Girar: botones, Q/E W/S A/D, rueda o clic derecho al sostener.</div>';
 function wInfo(u){const ok=u.preset==25,c=ok?'var(--ok)':'var(--tx)';return `Valor ajustado: <b style="color:${c}">${u.preset} N·m</b><br>Calibrado hasta: <b style="color:${c}">${u.date}</b>${ok?' ✔':(tqBad?'<br><span style="color:var(--bad)">Valores bloqueados tras sobretorque: reinicia el proceso.</span>':'<br><button id="bm">⚙ Modificar valores</button>')}`}
 function card(){const c=$('card');if(!sel){c.style.display='none';return}const u=sel.userData;c.style.display='block';
- c.innerHTML=u.inspected?`<b>${u.name}</b><br>P/N: <code>${u.pn}</code><br>`+(u.id=='wrench'?wInfo(u):`<span style="color:var(--ok)">✔ ${u.state}</span>`):`<b>Pieza sin identificar</b><br>Inspecciónala para ver nombre y P/N.<br><button id="bi">🔍 Inspeccionar</button>`;
- if(u.drag&&!u.locked)c.innerHTML+=CTL;c.querySelectorAll('.rb').forEach(x=>{x.onclick=()=>rotBtn(x.dataset.a)});const b=$('bi');if(b)b.onclick=()=>{u.inspected=true;card()};const m=$('bm');if(m)m.onclick=()=>{if(tqBad)return;u.preset=25;u.date='30-09-2027';card();ui();msg('Llave ajustada a 25 N·m y calibración 30-09-2027.','var(--ok)')}}
+ const head=u.inspected
+  ?`<button class="card-tog" id="cardTog" type="button" aria-expanded="${cardOpen}" aria-controls="cardBody"><span>${u.name}</span><i aria-hidden="true">${cardOpen?'⌃':'⌄'}</i></button>`
+  :`<button class="card-tog" id="bi" type="button"><span>Pieza sin identificar</span><i aria-hidden="true">🔍</i></button>`;
+ let body=u.inspected?(`P/N: <code>${u.pn}</code>`+(u.id=='wrench'?wInfo(u):`<div style="color:var(--ok);margin-top:4px">✔ ${u.state}</div>`)):'';
+ if(u.drag&&!u.locked)body+=CTL;
+ c.innerHTML=head+(u.inspected?`<div class="card-body" id="cardBody"${cardOpen?'':' hidden'}>${body}</div>`:'');
+ const t=$('cardTog');if(t)t.onclick=()=>{cardOpen=!cardOpen;card()};
+ c.querySelectorAll('.rb').forEach(x=>{x.onclick=()=>rotBtn(x.dataset.a)});const b=$('bi');if(b)b.onclick=()=>{u.inspected=true;card()};const m=$('bm');if(m)m.onclick=()=>{if(tqBad)return;u.preset=25;u.date='30-09-2027';card();ui();msg('Llave ajustada a 25 N·m y calibración 30-09-2027.','var(--ok)')}}
 function select(it){if(sel&&sel.userData.sh)sel.userData.sh.forEach(s=>s.visible=false);sel=it;
  if(it){if(!it.userData.sh){const ms=[];it.traverse(o=>{if(o.isMesh&&!o.userData.shell)ms.push(o)});it.userData.sh=ms.map(o=>{const s=new THREE.Mesh(o.geometry,shellM);s.userData.shell=true;s.scale.setScalar(1.08);o.add(s);return s})}it.userData.sh.forEach(s=>s.visible=true)}
  card()}
@@ -260,9 +288,24 @@ const pts=new Map();let pinch=null;
 function pdist(){const a=[...pts.values()];return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)}
 function setDist(v){uDist=Math.max(5,Math.min(28,v));cv.dataset.dist=uDist.toFixed(2)}
 cv.dataset.dist=uDist.toFixed(2);
-cv.addEventListener('pointerdown',e=>{try{cv.setPointerCapture(e.pointerId)}catch(_){}sx=lx=e.clientX;sy=ly=e.clientY;moved=false;mode='orbit';tapIt=null;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pts.size===2){pinch={d:pdist()||1,z:uDist};mode='pinch';orbit=false;drag=null;hold=false;return}if(auto){orbit=true;return}if(done||cutting)return;
- const k=pick(e);if(!k){orbit=true;return}
+/* Mover la vista: la mesa queda donde está y el modelo se corre para esquivar
+   la tarjeta. Dos dedos lo hacen siempre; el botón ✥ lo hace con un dedo. */
+const pan=V(0,0,0),panF=V(0,0,0),panR=V(0,0,0),panU=V(0,0,0);
+function panBy(dx,dy){
+  if(!dx&&!dy)return;
+  const k=cDist*.0018;
+  C.getWorldDirection(panF);
+  panR.crossVectors(panF,C.up).normalize();
+  panU.crossVectors(panR,panF).normalize();
+  pan.addScaledVector(panR,-dx*k).addScaledVector(panU,dy*k);
+  if(pan.length()>6)pan.setLength(6);
+  cv.dataset.pan=pan.x.toFixed(2)+','+pan.y.toFixed(2);
+}
+cv.dataset.pan='0.00,0.00';
+cv.addEventListener('pointerdown',e=>{try{cv.setPointerCapture(e.pointerId)}catch(_){}sx=lx=e.clientX;sy=ly=e.clientY;moved=false;mode='orbit';tapIt=null;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pts.size===2){const a=[...pts.values()];pinch={d:pdist()||1,z:uDist,mx:(a[0].x+a[1].x)/2,my:(a[0].y+a[1].y)/2};mode='pinch';orbit=false;drag=null;hold=false;return}if(auto){orbit=true;return}if(done||cutting)return;
+ const k=pick(e);if(!k){if(moveMode){mode='pan';return}orbit=true;return}
  const it=ITEMS[k.id];tapIt=it||null;if(it)select(it);
+ if(moveMode){mode='pan';return}
  if(e.button==2&&it&&it.userData.drag&&!it.userData.locked){mode='rot';return}
  if(k.id=='scrap'&&!binned){mode='drag';pn.setFromNormalAndCoplanarPoint(C.getWorldDirection(V(0,0,0)),k.pt);vy=0;vx=vz=0;binIn=false;drag={it:cutP,off:cutP.position.clone().sub(k.pt),E:null};return}
  if(step==6&&k.id=='tail'){if(!cu.userData.locked){msg('Necesitas los alicates de corte en posición.','var(--bad)');return}cutting=true;cutT=0;snipped=false;msg('Cortando…');return}
@@ -270,10 +313,11 @@ cv.addEventListener('pointerdown',e=>{try{cv.setPointerCapture(e.pointerId)}catc
  if(it&&it.userData.drag&&!it.userData.locked){mode='drag';const cam=C.getWorldDirection(V(0,0,0));pn.setFromNormalAndCoplanarPoint(cam,k.pt);
   it.userData.homing=false;drag={it,off:it.position.clone().sub(k.pt),E:exp()};if(drag.E&&drag.E.id==k.id)mkGhost(it,drag.E);return}
  orbit=true});
-cv.addEventListener('pointermove',e=>{if(pts.has(e.pointerId))pts.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch&&pts.size>=2){setDist(pinch.z*(pinch.d/(pdist()||1)));lx=e.clientX;ly=e.clientY;return}if(Math.hypot(e.clientX-sx,e.clientY-sy)>5)moved=true;
+cv.addEventListener('pointermove',e=>{if(pts.has(e.pointerId))pts.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch&&pts.size>=2){const a=[...pts.values()],mx=(a[0].x+a[1].x)/2,my=(a[0].y+a[1].y)/2;setDist(pinch.z*(pinch.d/(pdist()||1)));panBy(mx-pinch.mx,my-pinch.my);pinch.mx=mx;pinch.my=my;lx=e.clientX;ly=e.clientY;return}if(Math.hypot(e.clientX-sx,e.clientY-sy)>5){if(!moved){moved=true;if(cardOpen&&sel){cardOpen=false;card()}}}
  if(mode=='drag'&&drag){const r=cv.getBoundingClientRect();mo.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);RC.setFromCamera(mo,C);
   if(RC.ray.intersectPlane(pn,pt)){drag.it.position.copy(pt).add(drag.off);if(drag.it.position.y<-.6)drag.it.position.y=-.6;if(drag.it===cutP)binCollide(drag.it.position);if(ghost)gm.color.set(drag.it.position.distanceTo(drag.E.pos)<1?0x3ecf8e:0xf5a524)}}
  else if(mode=='rot'&&sel){sel.rotateOnWorldAxis(AY,(e.clientX-lx)*.012);sel.rotateOnWorldAxis(AX,(e.clientY-ly)*.012);lx=e.clientX;ly=e.clientY}
+ else if(mode=='pan'){panBy(e.clientX-lx,e.clientY-ly);lx=e.clientX;ly=e.clientY}
  else if(orbit){th-=(e.clientX-lx)*.008;ph=Math.max(.25,Math.min(1.5,ph-(e.clientY-ly)*.008));lx=e.clientX;ly=e.clientY}});
 function up(e){if(e&&e.pointerId!==undefined){pts.delete(e.pointerId);if(pts.size<2)pinch=null}
  if(mode=='drag'&&drag){const it=drag.it,E=drag.E;if(ghost){S.remove(ghost);ghost=null}
@@ -287,6 +331,7 @@ function up(e){if(e&&e.pointerId!==undefined){pts.delete(e.pointerId);if(pts.siz
    else{fTq++;msg('Torque insuficiente ('+torque.toFixed(1)+' N·m). Reintenta.','var(--bad)');torque=0;ui()}}
   else if(!moved&&holdT<.3&&tapIt)select(tapIt);hold=false}
  else if(mode=='orbit'&&!moved){select(tapIt)}
+ else if(mode=='pan'&&!moved&&tapIt){select(tapIt)}
  orbit=false;mode='';hold=false}
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 cv.addEventListener('wheel',e=>{e.preventDefault();if(drag)drag.it.rotateOnWorldAxis(AY,e.deltaY*.004);else setDist(uDist+e.deltaY*.01)},{passive:false});
@@ -298,6 +343,10 @@ addEventListener('resize',resize);resize();$('zi').onclick=()=>{setDist(uDist-2)
 if(window.parent!==window){const dn=$('decknav');if(dn){dn.style.display='flex';
  const go=d=>{try{window.parent.postMessage({type:'deck:nav',dir:d},'*')}catch(_){}};
  $('dnPrev').onclick=()=>go('prev');$('dnNext').onclick=()=>go('next')}}
+/* ✥ convierte el arrastre de un dedo en mover la vista (para quien no
+   descubre los dos dedos). */
+const mb=$('moveBtn');
+if(mb)mb.onclick=()=>{moveMode=!moveMode;mb.setAttribute('aria-pressed',moveMode?'true':'false')};
 // Bucle
 const clk=new THREE.Clock(),wp=V(0,0,0);
 (function loop(){requestAnimationFrame(loop);const dt=Math.min(.05,clk.getDelta()),t=clk.elapsedTime;
@@ -319,7 +368,7 @@ const clk=new THREE.Clock(),wp=V(0,0,0);
  Object.values(ITEMS).forEach(i=>{const u=i.userData;if(!u.drag)return;const hd=drag&&drag.it===i;
   if(u.homing&&!u.locked&&!hd){u.hq=u.hq||new THREE.Quaternion().setFromEuler(new THREE.Euler(0,u.rot,0));i.position.lerp(u.home,.15);i.quaternion.slerp(u.hq,.15);if(i.position.distanceTo(u.home)<.01){i.position.copy(u.home);i.quaternion.copy(u.hq);u.homing=false}}});
  tail.scale.setScalar(1+.25*Math.sin(t*6));if(cutP&&!binned&&!cutting&&!autoMove&&!(drag&&drag.it===cutP)&&cutP.position.y>-.96){vy+=9*dt;cutP.position.y=Math.max(-.96,cutP.position.y-vy*dt);cutP.position.x+=vx*dt;cutP.position.z+=vz*dt;cutP.rotation.z+=dt*3;if(cutP.position.y<=-.96){cutP.rotation.set(0,1.1,0);vx=vz=0}}
- tgt.lerp(DEF,.08);cDist+=(uDist-cDist)*.08;
+ tgt.x+=(DEF.x+pan.x-tgt.x)*.08;tgt.y+=(DEF.y+pan.y-tgt.y)*.08;tgt.z+=(DEF.z+pan.z-tgt.z)*.08;cDist+=(uDist-cDist)*.08;
  C.position.set(tgt.x+cDist*Math.sin(ph)*Math.sin(th),tgt.y+cDist*Math.cos(ph),tgt.z+cDist*Math.sin(ph)*Math.cos(th));C.lookAt(tgt);
  R.render(S,C)})();
 // Reproducción automática del procedimiento

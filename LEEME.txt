@@ -64,6 +64,10 @@ LÁMINA 7 (SIMULADOR)
     lista, reiniciar o pasar al modo automático.
   • Arrastrá el fondo para girar la vista; con dos dedos acercás o alejás.
     Tocar una pieza la inspecciona y arrastrarla la lleva al fantasma ámbar.
+  • Para correr el modelo y sacarlo de atrás de la tarjeta: arrastrá con dos
+    dedos, o activá ✥ (arriba a la derecha) y arrastrá con un dedo.
+  • La tarjeta de la pieza es una franja con el nombre. Tocala para ver P/N,
+    inspeccionar y girar; se vuelve a plegar sola cuando movés el modelo.
   • Sobre el modelo el gesto es del simulador, así que para cambiar de lámina
     usá las flechas ← → del borde o la ficha de controles del deck.
 
