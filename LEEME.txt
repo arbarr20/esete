@@ -2,8 +2,8 @@ ESETE — Presentación
 ====================
 
 QUÉ COPIAR
-  Copiá esta carpeta completa ("presentacion"). No hace falta nada más del proyecto:
-  adentro están las 11 láminas, el concentrador y las dos imágenes de la portada.
+  Esta carpeta completa. Adentro está todo: "linker.html", las láminas y las dos
+  imágenes de la portada. No hay archivos sueltos que tengas que recordar.
 
 CÓMO USARLA
   1. Abrí "linker.html" con Chrome o Edge (doble clic).
@@ -12,15 +12,19 @@ CÓMO USARLA
 
   La selección y el orden quedan guardados en el navegador.
 
-AGREGAR UNA LÁMINA NUEVA
-  1. Copiá el archivo .html en esta misma carpeta.
-  2. Abrí "linker.html" y tocá "Escanear carpeta".
-  3. Elegí ESTA carpeta (la que tiene linker.html). La lámina aparece al final,
-     marcada, y queda guardada para la próxima vez.
+AGREGAR LÁMINAS
+  Hay dos caminos, usá el que te convenga:
+  • "Escanear carpeta": elegí ESTA carpeta (la que tiene linker.html) y suma
+    todos los .html que encuentre, incluso dentro de una subcarpeta.
+  • "Agregar lámina": elegí uno o varios .html. Para que después se vean, esos
+    archivos tienen que estar copiados en esta carpeta.
 
-  También acepta láminas dentro de una subcarpeta de esta carpeta.
-  Si la lámina no trae "deck-bridge.js", se ve igual, pero las teclas apretadas
-  con el foco adentro no pasan al deck; usá los botones del borde inferior.
+  Las láminas nuevas aparecen al final, ya marcadas, y quedan guardadas para la
+  próxima vez.
+
+QUITAR UNA LÁMINA DE LA LISTA
+  El ✕ de la fila la saca de la lista; no borra el archivo. Mientras haya
+  láminas quitadas aparece "Mostrar quitadas · N" para devolverlas.
 
 ATAJOS EN PRESENTACIÓN
   ← →        pantalla anterior / siguiente
@@ -35,5 +39,6 @@ IMPORTANTE
   • Las fotos de las láminas están incluidas dentro de cada HTML.
   • Los modelos 3D (.glb) que elegiste en el editor viven en el navegador de esta
     máquina, no en esta carpeta. En otra computadora hay que volver a elegirlos.
-  • La lista inicial vive en "slides.js". No hace falta tocarla: el escaneo
-    agrega lo nuevo sin editar nada.
+  • Una lámina que no traiga el puente de teclado embebido se ve igual, pero las
+    teclas apretadas con el foco adentro no pasan al deck. Los botones del borde
+    inferior siempre funcionan.

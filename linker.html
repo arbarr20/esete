@@ -106,6 +106,8 @@
   .row-move button:hover:not(:disabled){ background:rgba(155,211,233,.14); color:#fff; }
   .row-move button:focus-visible{ outline:2px solid var(--cy); outline-offset:1px; }
   .row-move button:disabled{ opacity:.22; cursor:default; }
+  .row-move .remove{ margin-left:6px; color:rgba(255,255,255,.42); }
+  .row-move .remove:hover{ background:rgba(244,120,120,.16); color:#ffc2c2; }
 
   /* Barra fija: la lista scrollea por debajo, así el botón nunca tapa una fila. */
   .panel-foot{
@@ -363,9 +365,12 @@
     <div class="panel-tools">
       <button class="tool" id="scanBtn" type="button">Escanear carpeta</button>
       <input id="dirInput" type="file" webkitdirectory directory multiple hidden>
+      <button class="tool" id="addBtn" type="button">Agregar lámina</button>
+      <input id="fileInput" type="file" accept=".html,.htm,text/html" multiple hidden>
       <button class="tool" id="allBtn" type="button">Todos</button>
       <button class="tool" id="noneBtn" type="button">Ninguna</button>
       <button class="tool" id="resetBtn" type="button">Orden original</button>
+      <button class="tool" id="restoreBtn" type="button" hidden>Mostrar quitadas</button>
       <span class="tools-spacer"></span>
       <label class="cover-check">
         <input id="coverChk" type="checkbox" checked>
@@ -443,12 +448,27 @@
   </section>
 </template>
 
-<script src="slides.js"></script>
 <script>
+/* Catálogo inicial: nombres visibles de las láminas que ya vienen en la carpeta.
+   No hace falta tocarlo: «Escanear carpeta» y «Agregar lámina» suman lo nuevo. */
+var SEED_SLIDES = [
+  { file:'1-inicio.html',                  label:'Inicio' },
+  { file:'2-Proyecto.html',                label:'El caso ESETE' },
+  { file:'3-Comparativa.html',             label:'El problema' },
+  { file:'4-Evidencia.html',               label:'¿Funciona la RV?' },
+  { file:'5-web3d.html',                   label:'Segundo eje: Web 3D' },
+  { file:'6-erroreshumanos.html',          label:'Errores humanos' },
+  { file:'7-demoweb3.html',                label:'Demostración 3D' },
+  { file:'8-AET.html',                     label:'AET' },
+  { file:'9-otras fuerzas.html',           label:'Precedente militar' },
+  { file:'10-desafios.html',               label:'Limitaciones' },
+  { file:'11-Propuesta y próximos pasos.html', label:'Propuesta' }
+];
+
 (function(){
   'use strict';
 
-  /* ── Catálogo: slides.js + lo que encuentre «Escanear carpeta». ── */
+  /* ── Catálogo: semilla + lo que se agregue desde el panel. ── */
   var STORE = 'esete:linker:deck:v2';
   var labels = {};              /* archivo -> nombre visible */
   var state = null;
@@ -461,7 +481,7 @@
 
   function seedEntries(){
     var out = [];
-    var base = window.ESETE_SLIDES;
+    var base = SEED_SLIDES;
     if (Array.isArray(base)) {
       base.forEach(function(e){
         if (!e || !e.file) return;
@@ -475,7 +495,7 @@
 
   function defaultState(){
     var order = seedEntries().map(function(e){ return e.file; });
-    return { cover:true, order:order, on:order.slice(), extra:[] };
+    return { cover:true, order:order, on:order.slice(), extra:[], hidden:[] };
   }
 
   function load(){
@@ -493,6 +513,7 @@
       }
       if (Array.isArray(s.order)) state.order = s.order.filter(function(f){ return typeof f === 'string'; });
       if (Array.isArray(s.on)) state.on = s.on.filter(function(f){ return typeof f === 'string'; });
+      if (Array.isArray(s.hidden)) state.hidden = s.hidden.filter(function(f){ return typeof f === 'string'; });
       if (typeof s.cover === 'boolean') state.cover = s.cover;
     } catch (e) { /* private mode or blocked storage: keep defaults */ }
   }
@@ -511,12 +532,13 @@
       if (!labels[e.file]) labels[e.file] = e.label;
     });
 
+    var hidden = state.hidden || [];
     var order = [];
     state.order.forEach(function(f){
-      if (labels[f] && order.indexOf(f) < 0) order.push(f);
+      if (labels[f] && hidden.indexOf(f) < 0 && order.indexOf(f) < 0) order.push(f);
     });
     Object.keys(labels).forEach(function(f){
-      if (order.indexOf(f) < 0) order.push(f);
+      if (hidden.indexOf(f) < 0 && order.indexOf(f) < 0) order.push(f);
     });
     state.order = order;
 
@@ -535,6 +557,9 @@
   var coverChk  = document.getElementById('coverChk');
   var scanBtn   = document.getElementById('scanBtn');
   var dirInput  = document.getElementById('dirInput');
+  var addBtn    = document.getElementById('addBtn');
+  var fileInput = document.getElementById('fileInput');
+  var restoreBtn= document.getElementById('restoreBtn');
 
   function selected(){
     return state.order.filter(function(f){ return state.on.indexOf(f) >= 0; });
@@ -589,12 +614,38 @@
       move.className = 'row-move';
       move.appendChild(moveBtn(file, -1, pos === 0, 'Subir ' + name));
       move.appendChild(moveBtn(file, 1, pos === state.order.length - 1, 'Bajar ' + name));
+      move.appendChild(removeBtn(file, name));
 
       li.appendChild(lab);
       li.appendChild(move);
       rowsEl.appendChild(li);
     });
     paintCount();
+    paintRestore();
+  }
+
+  function removeBtn(file, name){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'remove';
+    b.dataset.file = file;
+    b.textContent = '✕';
+    b.setAttribute('aria-label', 'Quitar ' + name + ' de la lista');
+    b.title = 'Quitar de la lista (no borra el archivo)';
+    b.addEventListener('click', function(){
+      var at = state.order.indexOf(file);
+      if (!state.hidden) state.hidden = [];
+      if (state.hidden.indexOf(file) < 0) state.hidden.push(file);
+      state.order = state.order.filter(function(f){ return f !== file; });
+      state.on = state.on.filter(function(f){ return f !== file; });
+      save();
+      render();
+      toast('Quitada de la lista: ' + name);
+      var rowEl = rowsEl.children[Math.min(Math.max(at, 0), rowsEl.children.length - 1)];
+      var lab = rowEl && rowEl.querySelector('.row-main');
+      if (lab) lab.focus();
+    });
+    return b;
   }
 
   function moveBtn(file, dir, disabled, label){
@@ -633,6 +684,20 @@
     presentBtn.disabled = picks === 0;
   }
 
+  function paintRestore(){
+    var n = (state.hidden || []).length;
+    restoreBtn.hidden = n === 0;
+    restoreBtn.textContent = 'Mostrar quitadas · ' + n;
+  }
+
+  restoreBtn.addEventListener('click', function(){
+    state.hidden = [];
+    rebuild();
+    save();
+    render();
+    toast('Lista completa restaurada');
+  });
+
   document.getElementById('allBtn').addEventListener('click', function(){
     state.on = state.order.slice(); save(); render();
   });
@@ -648,6 +713,45 @@
   });
   coverChk.addEventListener('change', function(){
     state.cover = coverChk.checked; save(); paintCount();
+  });
+
+  /* ── Agregar lámina: un archivo suelto, sin escanear toda la carpeta ── */
+  addBtn.addEventListener('click', function(){ fileInput.click(); });
+
+  function addFile(name){
+    var clean = String(name || '').replace(/\\/g, '/').replace(/^.*\//, '');
+    if (!clean || !/\.html?$/i.test(clean)) return null;
+    if (clean.toLowerCase() === 'linker.html') return null;
+    if (labels[clean]) return null;
+    labels[clean] = pretty(clean);
+    state.extra.push({ file:clean, label:labels[clean] });
+    state.order.push(clean);
+    state.on.push(clean);
+    return clean;
+  }
+
+  function afterAdd(added){
+    if (!added.length) {
+      toast('Esa lámina ya está en la lista');
+      return;
+    }
+    save();
+    render();
+    toast(added.length === 1
+      ? 'Agregada: ' + labels[added[0]]
+      : added.length + ' láminas agregadas');
+  }
+
+  fileInput.addEventListener('change', function(){
+    var files = Array.prototype.slice.call(fileInput.files || []);
+    fileInput.value = '';
+    if (!files.length) return;
+    var added = [];
+    files.forEach(function(f){
+      var name = addFile(f.name);
+      if (name) added.push(name);
+    });
+    afterAdd(added);
   });
 
   /* ── Escanear carpeta: cualquier .html que esté al lado de este archivo ── */
