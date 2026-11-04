@@ -39,6 +39,9 @@ IMPORTANTE
   • Las fotos de las láminas están incluidas dentro de cada HTML.
   • Los modelos 3D (.glb) que elegiste en el editor viven en el navegador de esta
     máquina, no en esta carpeta. En otra computadora hay que volver a elegirlos.
+  • En el sitio publicado no hace falta: el panel del cubo suma una lista
+    «Del sitio…» con los tres modelos de recursos/ (B206, Motor, Cola). Al elegir
+    uno se descarga, se muestra y queda guardado en ese navegador.
   • Una lámina que no traiga el puente de teclado embebido se ve igual, pero las
     teclas apretadas con el foco adentro no pasan al deck. Los botones del borde
     inferior siempre funcionan.
