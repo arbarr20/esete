@@ -2,7 +2,12 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ESETE">
+<meta name="theme-color" content="#001326">
 <title>ESETE · Concentrador de láminas</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23001326'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23F4D171'/%3E%3C/svg%3E">
 <style>
@@ -271,6 +276,22 @@
     color:rgba(255,255,255,.6); padding-right:12px; max-width:30vw;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
+
+  /* ── Tableta sin teclado ───────────────────────────────────────────────
+     La barra es el único mando táctil del deck: los objetivos pasan a 44 px
+     (el mínimo cómodo para un dedo) y respetan la safe-area del iPad. */
+  #bar{
+    right:calc(24px + env(safe-area-inset-right, 0px));
+    bottom:calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+  @media (pointer:coarse){
+    #bar{ gap:6px; padding:8px 10px; }
+    #bar button{ min-width:44px; min-height:44px; padding:12px 15px; font-size:13px; }
+    #counter{ font-size:13px; padding:0 6px; }
+    #label{ display:none; }
+  }
+  /* Lanzado desde el ícono no hay barra de Safari que ocultar. */
+  body.is-standalone #fsBtn{ display:none; }
 
   /* ── Índice ── */
   #menu{
@@ -843,6 +864,7 @@ var SEED_SLIDES = [
       el.title = s.label;
       el.setAttribute('allow', 'fullscreen; autoplay; clipboard-write');
       el.src = encodeURI(s.src);
+      el.addEventListener('load', function(){ wireTouch(el); });
     } else {
       el = coverNode();
     }
@@ -851,6 +873,44 @@ var SEED_SLIDES = [
     layers[i] = el;
     return el;
   }
+
+  /* ── Navegación táctil (iPad sin teclado) ────────────────────────────────
+     Cada lámina vive en un iframe y sus eventos táctiles NO suben al
+     contenedor: el swipe se engancha sobre el contentDocument de la lámina
+     (mismo origen) y se reengancha en cada load. Arrancando sobre un canvas
+     o un control, el gesto es del visor y no del deck.
+     Bajo file:// el navegador trata el iframe como origen opaco y no hay
+     contentDocument: ahí siguen la barra y las flechas. ── */
+  var TOUCH_BLOCK = 'canvas, button, input, select, textarea, a, [contenteditable], #edBar, #p3Rot, #p3Zoom, .ctl, .modes, .p3-src';
+
+  function swipeOn(doc){
+    var x0 = 0, y0 = 0, t0 = 0, on = false;
+    doc.addEventListener('touchstart', function(e){
+      if (e.touches.length !== 1) { on = false; return; }
+      var tg = e.target;
+      if (tg && tg.closest && tg.closest(TOUCH_BLOCK)) { on = false; return; }
+      on = true; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now();
+    }, { passive:true, capture:true });
+    doc.addEventListener('touchend', function(e){
+      if (!on) return; on = false;
+      var t = e.changedTouches && e.changedTouches[0]; if (!t) return;
+      if (Date.now() - t0 > 900) return;
+      var dx = t.clientX - x0, dy = t.clientY - y0;
+      if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+      if (!document.body.classList.contains('mode-present')) return;
+      if (dx < 0) next(); else prev();
+    }, { passive:true, capture:true });
+    doc.addEventListener('touchcancel', function(){ on = false; }, { passive:true, capture:true });
+  }
+
+  function wireTouch(fr){
+    var doc = null;
+    try { doc = fr.contentDocument; } catch (e) { doc = null; }
+    if (!doc || doc.__deckTouch) return;
+    doc.__deckTouch = true;
+    swipeOn(doc);
+  }
+  swipeOn(document);
 
   function prune(){
     Object.keys(layers).forEach(function(k){
@@ -936,13 +996,41 @@ var SEED_SLIDES = [
   function openHelp(){ help.classList.add('is-open'); }
   function closeHelp(){ help.classList.remove('is-open'); }
   function toggleBlack(){ black.classList.toggle('is-on'); }
+  function isStandalone(){
+    try {
+      return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+             window.navigator.standalone === true;
+    } catch (e) { return false; }
+  }
+  function coarse(){
+    try { return window.matchMedia('(pointer: coarse)').matches; } catch (e) { return false; }
+  }
+  function portrait(){
+    try { return window.matchMedia('(orientation: portrait)').matches; } catch (e) { return false; }
+  }
+  /* En iPad el API existe desde iPadOS 16.4 pero es parcial: si no hay forma
+     de pedirlo, se ofrece la única pantalla completa real del iPad, que es
+     abrir el deck desde el ícono de la pantalla de inicio. */
   function toggleFull(){
-    if (!document.fullscreenElement) {
-      var el = document.documentElement;
-      if (el.requestFullscreen) el.requestFullscreen().catch(function(){});
-    } else if (document.exitFullscreen) {
-      document.exitFullscreen().catch(function(){});
+    if (document.fullscreenElement) {
+      if (document.exitFullscreen) document.exitFullscreen().catch(function(){});
+      return;
     }
+    var el = document.documentElement;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) {
+      try {
+        var p = req.call(el);
+        if (p && p.catch) p.catch(function(){ fallbackFull(); });
+        return;
+      } catch (e) { /* sigue al fallback */ }
+    }
+    fallbackFull();
+  }
+  function fallbackFull(){
+    toast(isStandalone()
+      ? 'Ya estás a pantalla completa'
+      : 'En iPad: Compartir → «Agregar a pantalla de inicio»');
   }
   function toggleHud(){
     hudHidden = !hudHidden;
@@ -996,6 +1084,8 @@ var SEED_SLIDES = [
     paintHud();
     build(1);
     clearToast();
+    /* Las láminas son 16:9: en vertical entran chicas y con barras. */
+    if (coarse() && portrait()) toast('Girá el iPad: las láminas son apaisadas');
   }
 
   function exitPresent(){
@@ -1060,6 +1150,7 @@ var SEED_SLIDES = [
   });
 
   /* ── Arranque ── */
+  if (isStandalone()) document.body.classList.add('is-standalone');
   if (/^https?:$/.test(location.protocol)) document.getElementById('webNote').hidden = false;
   load();
   rebuild();

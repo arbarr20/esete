@@ -33,15 +33,30 @@ ATAJOS EN PRESENTACIÓN
   M          índice      B  pantalla en negro      F  pantalla completa
   ?          ayuda       Esc  cerrar
 
+DESDE UN IPAD SIN TECLADO
+  • Tocá los botones ← → de la barra inferior: son grandes (44 px) a propósito.
+    También podés deslizar el dedo en horizontal sobre la lámina.
+  • El deslizamiento no navega si arranca sobre un visor 3D o sobre un control:
+    ahí el gesto le pertenece al modelo.
+  • ⛶ pide pantalla completa. Si el iPad no la concede, agregá el sitio a la
+    pantalla de inicio (Compartir → "Agregar a pantalla de inicio") y abrilo
+    desde el ícono: arranca sin la barra de Safari.
+  • Presentá en horizontal: las láminas son apaisadas.
+
+MODELOS 3D
+  • Con un modelo cargado, acercá y alejá con la rueda, con dos dedos sobre el
+    visor, o con los botones − / +. "Ajustar" vuelve al encuadre que entra en
+    pantalla. Vale igual para el visor grande y para la tarjeta de fotos.
+
 IMPORTANTE
   • Las láminas 3D cargan three.js desde internet. Sin conexión, el resto de la
     presentación funciona, pero los visores 3D quedan vacíos.
   • Las fotos de las láminas están incluidas dentro de cada HTML.
   • Los modelos 3D (.glb) que elegiste en el editor viven en el navegador de esta
     máquina, no en esta carpeta. En otra computadora hay que volver a elegirlos.
-  • En el sitio publicado no hace falta: el panel del cubo suma una lista
-    «Del sitio…» con los tres modelos de recursos/ (B206, Motor, Cola). Al elegir
-    uno se descarga, se muestra y queda guardado en ese navegador.
+  • En el sitio publicado no hace falta: el panel del cubo y la tarjeta de fotos
+    suman una lista «Del sitio…» con los tres modelos de recursos/ (B206, Motor,
+    Cola). Al elegir uno se descarga, se muestra y queda guardado en ese navegador.
   • Una lámina que no traiga el puente de teclado embebido se ve igual, pero las
     teclas apretadas con el foco adentro no pasan al deck. Los botones del borde
     inferior siempre funcionan.
