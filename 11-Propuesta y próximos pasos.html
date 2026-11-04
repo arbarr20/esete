@@ -279,12 +279,29 @@ h2{ margin:calc(var(--u)*24px) 0 0; font-family:var(--sans); font-weight:900; le
     font-family:var(--mono); font-size:calc(var(--u)*9.5px); letter-spacing:.1em;
     color:rgba(255,255,255,.78); text-shadow:0 1px 6px rgba(0,0,0,.85); pointer-events:none; }
   #p3Msg:empty{ display:none; }
-  /* Selector «Del sitio…» del slot: mismo trato que el del visor superior. */
-  .p3-src{ position:absolute; z-index:5; top:calc(var(--u)*8px); left:calc(var(--u)*8px); }
+  /* «Del sitio…» del slot: vive dentro del control .glb de la tarjeta y
+     arranca plegado, así no queda nada flotando sobre la foto ni sobre el
+     modelo. El caret abre la lista justo encima del botón. */
+  .p3-load{ position:absolute; z-index:6; right:calc(var(--u)*8px); bottom:calc(var(--u)*7px);
+    display:flex; align-items:center; gap:calc(var(--u)*4px); }
+  .p3-load #bPick3{ position:static; right:auto; bottom:auto; }
+  .panel-photos.p3-on .p3-load{ display:none; }
+  .p3-src{ position:absolute; z-index:7; right:calc(var(--u)*8px); bottom:calc(var(--u)*36px);
+    display:none; padding:calc(var(--u)*2px); border-radius:calc(var(--u)*99px);
+    background:rgba(0,12,26,.62); border:1px solid rgba(155,211,233,.18); }
+  .p3-src.on{ display:flex; }
   .p3-src[hidden]{ display:none; }
+  .p3-src-tog{ display:grid; place-items:center; width:calc(var(--u)*22px); height:calc(var(--u)*22px);
+    padding:0; font-family:var(--mono); font-size:calc(var(--u)*9px); line-height:1;
+    color:rgba(155,211,233,.72); background:rgba(4,14,28,.55);
+    border:1px solid rgba(155,211,233,.14); border-radius:calc(var(--u)*8px);
+    cursor:pointer; outline:none; opacity:.72;
+    transition:opacity .16s ease, color .16s ease, border-color .16s ease; }
+  .p3-src-tog:hover, .p3-src-tog[aria-expanded="true"]{ opacity:1; color:var(--gold); border-color:rgba(244,209,113,.45); }
+  .p3-src-tog:focus-visible{ outline:2px solid rgba(244,209,113,.7); outline-offset:1px; }
   .p3-src select{ font-family:var(--mono); font-size:calc(var(--u)*9px); letter-spacing:.12em;
-    text-transform:uppercase; white-space:nowrap; color:rgba(155,211,233,.85);
-    background:rgba(4,14,28,.72); border:1px solid rgba(155,211,233,.18);
+    text-transform:uppercase; white-space:nowrap; color:rgba(155,211,233,.9);
+    background:rgba(4,14,28,.9); border:1px solid rgba(155,211,233,.18);
     border-radius:calc(var(--u)*10px); padding:calc(var(--u)*3px) calc(var(--u)*7px);
     outline:none; cursor:pointer; max-width:calc(var(--u)*150px); opacity:.78;
     transition:opacity .16s ease, color .16s ease, border-color .16s ease; }
@@ -1690,6 +1707,26 @@ h2{ margin:calc(var(--u)*24px) 0 0; font-family:var(--sans); font-weight:900; le
     });
     wrap.appendChild(sel);
     panel.appendChild(wrap);
+    /* El cargador de la tarjeta: .glb (archivo) + caret (modelos del sitio). */
+    var pick=document.getElementById('bPick3');
+    if(pick&&pick.parentNode){
+      var box=document.createElement('span'); box.className='p3-load';
+      pick.parentNode.insertBefore(box,pick);
+      var tog=document.createElement('button');
+      tog.type='button'; tog.id='p3SrcTog'; tog.className='p3-src-tog';
+      tog.textContent='\u25be'; tog.title='Modelos publicados con el sitio';
+      tog.setAttribute('aria-label','Cargar un modelo publicado junto al sitio');
+      tog.setAttribute('aria-expanded','false'); tog.setAttribute('aria-controls','sSrc3');
+      box.appendChild(pick); box.appendChild(tog);
+      function fold(v){ wrap.classList.toggle('on',v); tog.setAttribute('aria-expanded',v?'true':'false'); }
+      tog.addEventListener('click',function(e){ e.stopPropagation(); fold(!wrap.classList.contains('on')); });
+      document.addEventListener('pointerdown',function(e){
+        if(wrap.classList.contains('on')&&!box.contains(e.target)&&!wrap.contains(e.target)) fold(false);
+      },true);
+      document.addEventListener('keydown',function(e){ if(e.key==='Escape') fold(false); });
+      sel.addEventListener('change',function(){ fold(false); });
+      pick.addEventListener('click',function(){ fold(false); });
+    }
   })();
 
   /* ---- Zoom del slot: rueda, pinch, botones y «Ajustar» ----
