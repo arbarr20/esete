@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#10151b">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Simulador de mantenimiento: tapón detector de virutas</title>
 <style>
 :root{--bg:#10151b;--panel:rgba(20,27,36,.9);--tx:#e8eef5;--mu:#8fa0b3;--ac:#f5a524;--ok:#3ecf8e;--bad:#ff6b6b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -27,11 +29,56 @@ button{background:#1f2a37;color:var(--tx);border:1px solid #35475a;border-radius
 #tcont{background:var(--ac)}
 #rep{left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,92vw);max-height:84vh;overflow:auto;display:none;font-size:13px}
 #rep h2{margin:0 0 8px;color:var(--ok)}#rep li{margin:4px 0}
+/* ── Panel de pasos plegable ─────────────────────────────────────────── */
+#steps summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;
+  color:var(--ac);list-style:none;outline:none;-webkit-tap-highlight-color:transparent}
+#steps summary::-webkit-details-marker{display:none}
+#steps summary::after{content:'▾';margin-left:auto;color:var(--mu);font-size:12px}
+#steps[open] summary::after{content:'▴'}
+#steps summary:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:6px}
+#steps[open] summary{margin-bottom:6px}
+/* ── Escape al deck, sólo cuando la lámina vive dentro del contenedor ── */
+#decknav{position:absolute;z-index:6;top:50%;left:0;right:0;transform:translateY(-50%);
+  display:none;justify-content:space-between;pointer-events:none}
+#decknav button{pointer-events:auto;width:44px;height:68px;padding:0;margin:0;font-size:18px;
+  color:var(--mu);background:rgba(20,27,36,.6);border:1px solid rgba(53,71,90,.6);
+  border-radius:0 12px 12px 0;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#decknav #dnPrev{border-radius:0 12px 12px 0}
+#decknav #dnNext{border-radius:12px 0 0 12px}
+/* ── Táctil: tableta y teléfono ──────────────────────────────────────── */
+@media (max-width:900px),(pointer:coarse){
+  html,body{font-size:15px;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+  .p{padding:12px 14px;border-radius:14px}
+  button{min-height:44px;padding:11px 14px;font-size:14px}
+  #steps{top:calc(8px + env(safe-area-inset-top,0px));left:8px;width:min(320px,calc(100vw - 16px));
+    max-width:none;max-height:52vh;overflow:auto}
+  #steps summary{min-height:44px;padding:0 2px}
+  #steps:not([open]){width:auto}
+  #steps h1{font-size:14px}
+  #steps ol{font-size:13.5px;line-height:1.65}
+  .hint{font-size:12.5px !important}
+  #side{top:auto;left:8px;right:8px;width:auto;max-width:none;gap:10px;
+    bottom:calc(84px + env(safe-area-inset-bottom,0px));max-height:44vh;overflow:auto}
+  #side .p{font-size:13.5px}
+  #bar{height:28px}
+  .rb{min-width:46px;font-size:16px}
+  #msg{left:0;right:0;bottom:0;border-radius:14px 14px 0 0;font-size:14px;line-height:1.4;
+    padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px))}
+  #fin{left:8px;right:8px;bottom:calc(88px + env(safe-area-inset-bottom,0px));font-size:16px;
+    padding:14px;border-radius:12px}
+  #rep{left:8px;right:8px;top:8px;bottom:8px;width:auto;max-height:none;transform:none}
+  #decknav button{width:46px;height:76px}
+}
+@media (max-width:480px){
+  #steps{max-height:58vh}
+  #side{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+}
 </style></head><body>
-<div id="steps" class="p"><h1>Instalación tapón detector de virutas (MGB)</h1><ol id="ol"></ol><p style="margin:8px 0 0;font-size:11px;color:var(--mu)">Toca una pieza para inspeccionarla. Puedes girarla (botones, Q/E/W/S/A/D, rueda mientras la sostienes o clic derecho) y dejarla en el aire. Rueda del mouse sin pieza en la mano: zoom.</p><div><button id="zi">+ Acercar</button> <button id="zo">- Alejar</button> <button id="rst" onclick="location.reload()">↻ Reiniciar</button><br><button id="bplay" onclick="location.hash='auto';location.reload()">▶ Reproducir</button> <button id="bman" onclick="if(auto){location.hash='';location.reload()}else msg('Modo manual activo.')">✋ Manual</button></div></div>
+<details id="steps" class="p" open><summary><span id="stepNow">Paso 1 / 7</span></summary><h1>Instalación tapón detector de virutas (MGB)</h1><ol id="ol"></ol><p class="hint" style="margin:8px 0 0;font-size:11px;color:var(--mu)">Toca una pieza para inspeccionarla y arrástrala hasta el fantasma ámbar. Arrastra el fondo para girar la vista; con dos dedos acercás o alejás. Mantén pulsada una pieza o el tapón cuando el paso lo pida. Con teclado: Q/E/W/S/A/D y rueda.</p><div><button id="zi">+ Acercar</button> <button id="zo">− Alejar</button> <button id="rst" onclick="location.reload()">↻ Reiniciar</button><br><button id="bplay" onclick="location.hash='auto';location.reload()">▶ Reproducir</button> <button id="bman" onclick="if(auto){location.hash='';location.reload()}else msg('Modo manual activo.')">✋ Manual</button></div></details>
 <div id="side"><div class="p" id="hud" style="display:none">Torque: <b id="tq">0.0</b> N·m<br>Valor de la llave: <b id="pv">35</b> N·m<div id="bar"><div id="fill"></div><div id="zone"></div></div></div>
 <div class="p" id="card"></div></div>
 <div id="msg" class="p"></div><button id="fin" onclick="finish()">✔ Terminar</button>
+<div id="decknav"><button id="dnPrev" type="button" aria-label="Lámina anterior">←</button><button id="dnNext" type="button" aria-label="Lámina siguiente">→</button></div>
 <div id="rep" class="p"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -159,9 +206,11 @@ const ol=$('ol');ST.forEach(s=>{const l=document.createElement('li');l.textConte
 let step=0,sub=0,hold=false,holdT=0,depth=0,torque=0,prog=0,done=false,sel=null,fSnap=0,fTq=0,drag=null,orbit=false,mode='',tapIt=null,sx=0,sy=0,moved=false,lx=0,ly=0,th=0,ph=.95,uDist=innerWidth/innerHeight<1.2?26:17,cDist=uDist,cutting=false,cutT=0,snipped=false,cutP=null,vy=0,vx=0,vz=0,binned=false,binIn=false,tqBad=0,auto=location.hash=='#auto',autoMove=null;
 const t0=performance.now(),tgt=V(0,.2,.8),DEF=V(0,.2,.8);
 function msg(t,c){const e=$('msg');e.textContent=t;e.style.color=c||''}
-function ui(){[...ol.children].forEach((l,i)=>l.className=i<step?'done':i==step?'cur':'');$('tq').textContent=torque.toFixed(1);$('pv').textContent=wr.userData.preset;$('zone').style.left=(wr.userData.preset-3.5)/40*100+'%';$('fill').style.width=Math.min(100,torque/40*100)+'%';const inS=torque>0&&Math.abs(torque-wr.userData.preset)<=3.5;$('fill').style.background=inS?'var(--ok)':'var(--ac)';$('zone').style.background=inS?'rgba(62,207,142,.5)':'rgba(255,255,255,.35)';$('zone').style.borderColor=inS?'var(--ok)':'#fff';$('hud').style.display=step==3&&!done?'block':'none'}
+function ui(){[...ol.children].forEach((l,i)=>l.className=i<step?'done':i==step?'cur':'');$('stepNow').textContent=step>=ST.length?'Listo':'Paso '+(step+1)+' / '+ST.length;$('tq').textContent=torque.toFixed(1);$('pv').textContent=wr.userData.preset;$('zone').style.left=(wr.userData.preset-3.5)/40*100+'%';$('fill').style.width=Math.min(100,torque/40*100)+'%';const inS=torque>0&&Math.abs(torque-wr.userData.preset)<=3.5;$('fill').style.background=inS?'var(--ok)':'var(--ac)';$('zone').style.background=inS?'rgba(62,207,142,.5)':'rgba(255,255,255,.35)';$('zone').style.borderColor=inS?'var(--ok)':'#fff';$('hud').style.display=step==3&&!done?'block':'none'}
 function next(){step++;sub=0;if(step>=ST.length){msg('Corte realizado. Revisa el trabajo y pulsa «Terminar».','var(--ok)');$('fin').style.display='block'}else msg(MS[step]);ui()}
 msg(MS[0]);ui();
+/* En tableta y teléfono el panel arranca plegado: la escena manda. */
+if(matchMedia('(max-width:900px), (pointer:coarse)').matches){const st=$('steps');if(st)st.open=false}
 const AX=V(1,0,0),AY=V(0,1,0),AZ=V(0,0,1),shellM=new THREE.MeshBasicMaterial({color:0x3ecf8e,side:THREE.BackSide,transparent:true,opacity:.75});
 const CTL='<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px"><button class="rb" data-a="yl">\u21ba</button><button class="rb" data-a="yr">\u21bb</button><button class="rb" data-a="pu">\u2912</button><button class="rb" data-a="pd">\u2913</button><button class="rb" data-a="rl">\u27f2</button><button class="rb" data-a="rr">\u27f3</button><button class="rb" data-a="home">\u2302 Devolver</button></div><div style="font-size:11px;margin-top:4px">Girar: botones, Q/E W/S A/D, rueda o clic derecho al sostener.</div>';
 function wInfo(u){const ok=u.preset==25,c=ok?'var(--ok)':'var(--tx)';return `Valor ajustado: <b style="color:${c}">${u.preset} N·m</b><br>Calibrado hasta: <b style="color:${c}">${u.date}</b>${ok?' ✔':(tqBad?'<br><span style="color:var(--bad)">Valores bloqueados tras sobretorque: reinicia el proceso.</span>':'<br><button id="bm">⚙ Modificar valores</button>')}`}
@@ -203,7 +252,15 @@ function holdOK(id){const L=n=>ITEMS[n].userData.locked;
  if(step==3)return L('wrench')&&(id=='wrench'||id=='plug'||id=='oring');
  if(step==5)return L('twister')&&(id=='twister'||id=='wirei')}
 const cv=R.domElement;
-cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);sx=lx=e.clientX;sy=ly=e.clientY;moved=false;mode='orbit';tapIt=null;if(auto){orbit=true;return}if(done||cutting)return;
+/* En el deck este canvas es la lámina entera: sus gestos (girar, arrastrar
+   piezas) no deben además cambiar de lámina. El deck lo respeta por el
+   atributo y deja la ficha de controles como salida. */
+cv.setAttribute('data-deck-swipe','off');
+const pts=new Map();let pinch=null;
+function pdist(){const a=[...pts.values()];return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)}
+function setDist(v){uDist=Math.max(5,Math.min(28,v));cv.dataset.dist=uDist.toFixed(2)}
+cv.dataset.dist=uDist.toFixed(2);
+cv.addEventListener('pointerdown',e=>{try{cv.setPointerCapture(e.pointerId)}catch(_){}sx=lx=e.clientX;sy=ly=e.clientY;moved=false;mode='orbit';tapIt=null;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pts.size===2){pinch={d:pdist()||1,z:uDist};mode='pinch';orbit=false;drag=null;hold=false;return}if(auto){orbit=true;return}if(done||cutting)return;
  const k=pick(e);if(!k){orbit=true;return}
  const it=ITEMS[k.id];tapIt=it||null;if(it)select(it);
  if(e.button==2&&it&&it.userData.drag&&!it.userData.locked){mode='rot';return}
@@ -213,12 +270,12 @@ cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);sx=lx=e.
  if(it&&it.userData.drag&&!it.userData.locked){mode='drag';const cam=C.getWorldDirection(V(0,0,0));pn.setFromNormalAndCoplanarPoint(cam,k.pt);
   it.userData.homing=false;drag={it,off:it.position.clone().sub(k.pt),E:exp()};if(drag.E&&drag.E.id==k.id)mkGhost(it,drag.E);return}
  orbit=true});
-cv.addEventListener('pointermove',e=>{if(Math.hypot(e.clientX-sx,e.clientY-sy)>5)moved=true;
+cv.addEventListener('pointermove',e=>{if(pts.has(e.pointerId))pts.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch&&pts.size>=2){setDist(pinch.z*(pinch.d/(pdist()||1)));lx=e.clientX;ly=e.clientY;return}if(Math.hypot(e.clientX-sx,e.clientY-sy)>5)moved=true;
  if(mode=='drag'&&drag){const r=cv.getBoundingClientRect();mo.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);RC.setFromCamera(mo,C);
   if(RC.ray.intersectPlane(pn,pt)){drag.it.position.copy(pt).add(drag.off);if(drag.it.position.y<-.6)drag.it.position.y=-.6;if(drag.it===cutP)binCollide(drag.it.position);if(ghost)gm.color.set(drag.it.position.distanceTo(drag.E.pos)<1?0x3ecf8e:0xf5a524)}}
  else if(mode=='rot'&&sel){sel.rotateOnWorldAxis(AY,(e.clientX-lx)*.012);sel.rotateOnWorldAxis(AX,(e.clientY-ly)*.012);lx=e.clientX;ly=e.clientY}
  else if(orbit){th-=(e.clientX-lx)*.008;ph=Math.max(.25,Math.min(1.5,ph-(e.clientY-ly)*.008));lx=e.clientX;ly=e.clientY}});
-function up(){
+function up(e){if(e&&e.pointerId!==undefined){pts.delete(e.pointerId);if(pts.size<2)pinch=null}
  if(mode=='drag'&&drag){const it=drag.it,E=drag.E;if(ghost){S.remove(ghost);ghost=null}
   if(it===cutP){const dx=it.position.x-BC.x,dz=it.position.z-BC.z,h=Math.hypot(dx,dz);if(h<BRI-.05&&(binIn||it.position.y>=BIN_TOP)){binned=true;it.position.set(BC.x+dx*.3,-.93,BC.z+dz*.3);it.rotation.set(0,0,0);msg('Sobrante depositado en el bote FOD.','var(--ok)')}else if(h<BRO+.12){const ux=h>1e-3?dx/h:1,uz=h>1e-3?dz/h:0;it.position.x=BC.x+ux*(BRO+.15);it.position.z=BC.z+uz*(BRO+.15)}vy=0;vx=vz=0;binIn=false;drag=null;orbit=false;mode='';return}
   if(!moved)select(it);
@@ -232,10 +289,15 @@ function up(){
  else if(mode=='orbit'&&!moved){select(tapIt)}
  orbit=false;mode='';hold=false}
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
-cv.addEventListener('wheel',e=>{e.preventDefault();if(drag)drag.it.rotateOnWorldAxis(AY,e.deltaY*.004);else uDist=Math.max(5,Math.min(28,uDist+e.deltaY*.01))},{passive:false});
+cv.addEventListener('wheel',e=>{e.preventDefault();if(drag)drag.it.rotateOnWorldAxis(AY,e.deltaY*.004);else setDist(uDist+e.deltaY*.01)},{passive:false});
 cv.addEventListener('contextmenu',e=>e.preventDefault());addEventListener('keydown',e=>{const m={q:'yl',e:'yr',w:'pu',s:'pd',a:'rl',d:'rr'}[e.key.toLowerCase()];if(m)rotBtn(m)});
 function resize(){R.setSize(innerWidth,innerHeight);C.aspect=innerWidth/innerHeight;C.updateProjectionMatrix()}
-addEventListener('resize',resize);resize();$('zi').onclick=()=>{uDist=Math.max(5,uDist-2)};$('zo').onclick=()=>{uDist=Math.min(28,uDist+2)};
+addEventListener('resize',resize);resize();$('zi').onclick=()=>{setDist(uDist-2)};$('zo').onclick=()=>{setDist(uDist+2)};
+/* Salida visible cuando la lámina está dentro del deck: en táctil el swipe
+   sobre el canvas es del modelo, así que se ofrece el paso explícito. */
+if(window.parent!==window){const dn=$('decknav');if(dn){dn.style.display='flex';
+ const go=d=>{try{window.parent.postMessage({type:'deck:nav',dir:d},'*')}catch(_){}};
+ $('dnPrev').onclick=()=>go('prev');$('dnNext').onclick=()=>go('next')}}
 // Bucle
 const clk=new THREE.Clock(),wp=V(0,0,0);
 (function loop(){requestAnimationFrame(loop);const dt=Math.min(.05,clk.getDelta()),t=clk.elapsedTime;

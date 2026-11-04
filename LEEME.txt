@@ -51,9 +51,21 @@ MODELOS 3D
   • Con un modelo cargado, acercá y alejá con la rueda, con dos dedos sobre el
     visor, o con los botones − / +. "Ajustar" vuelve al encuadre que entra en
     pantalla. Vale igual para el visor grande y para la tarjeta de fotos.
-  • En la tarjeta de fotos esos controles están plegados junto al botón de
-    rotación (el ícono circular): al abrirlo aparecen el zoom y "Ajustar", y no
-    queda nada fijo tapando la tarjeta.
+  • En la tarjeta de fotos, "Del sitio…" no flota sobre la foto: tocá el caret
+    ▾ que está al lado de ".glb" y elegí B206, Motor o Cola. Al elegir se
+    pliega solo, y con un modelo cargado el cargador desaparece (usá ✕ para
+    cambiarlo).
+  • Esos mismos controles de zoom están plegados junto al botón de rotación:
+    al abrirlo aparecen el zoom y "Ajustar", y no queda nada fijo tapando la
+    tarjeta.
+
+LÁMINA 7 (SIMULADOR)
+  • El panel de pasos arranca plegado en tableta y teléfono: tocalo para ver la
+    lista, reiniciar o pasar al modo automático.
+  • Arrastrá el fondo para girar la vista; con dos dedos acercás o alejás.
+    Tocar una pieza la inspecciona y arrastrarla la lleva al fantasma ámbar.
+  • Sobre el modelo el gesto es del simulador, así que para cambiar de lámina
+    usá las flechas ← → del borde o la ficha de controles del deck.
 
 IMPORTANTE
   • Las láminas 3D cargan three.js desde internet. Sin conexión, el resto de la

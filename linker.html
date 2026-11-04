@@ -892,7 +892,7 @@ var SEED_SLIDES = [
      o un control, el gesto es del visor y no del deck.
      Bajo file:// el navegador trata el iframe como origen opaco y no hay
      contentDocument: ahí siguen la barra y las flechas. ── */
-  var TOUCH_BLOCK = '#c, #p3, button, input, select, textarea, a, [contenteditable], #edBar, #p3Rot, #p3Zoom, .ctl, .modes, .p3-src';
+  var TOUCH_BLOCK = '#c, #p3, button, input, select, textarea, a, [contenteditable], [data-deck-swipe="off"], #edBar, #p3Rot, #p3Zoom, .ctl, .modes, .p3-src';
 
   function swipeOn(doc){
     var x0 = 0, y0 = 0, t0 = 0, on = false;
