@@ -291,11 +291,13 @@ h2{ margin:calc(var(--u)*24px) 0 0; font-family:var(--sans); font-weight:900; le
   .p3-src select:hover, .p3-src select:focus-visible{ opacity:1; color:var(--gold); border-color:rgba(244,209,113,.45); }
   .p3-src select option{ background:#001326; color:#DFF3FB; }
   /* Zoom del slot: mismos controles que el visor superior, sobre el modelo. */
-  .p3-zoom{ position:absolute; z-index:5; top:calc(var(--u)*30px); left:calc(var(--u)*8px);
+  .p3-zoom{ position:absolute; z-index:4; right:calc(var(--u)*8px); bottom:calc(var(--u)*34px);
     display:none; align-items:center; gap:calc(var(--u)*2px); padding:calc(var(--u)*1px);
     border-radius:calc(var(--u)*99px); background:rgba(0,12,26,.55);
     border:1px solid rgba(155,211,233,.18); }
-  .panel-photos.p3-on .p3-zoom{ display:flex; }
+  /* Plegado con el mismo botón que ya gira el modelo: no queda nada fijo
+     tapando la tarjeta. */
+  .panel-photos.p3-on #p3Rot.open ~ .p3-zoom{ display:flex; }
   .p3-zoom button{ font-family:var(--mono); font-size:calc(var(--u)*9px); letter-spacing:.1em;
     text-transform:uppercase; color:rgba(155,211,233,.8); background:none;
     border:1px solid transparent; border-radius:calc(var(--u)*99px);
@@ -303,7 +305,7 @@ h2{ margin:calc(var(--u)*24px) 0 0; font-family:var(--sans); font-weight:900; le
   .p3-zoom button:hover{ color:var(--gold); border-color:rgba(244,209,113,.4); }
   .p3-zoom button:focus-visible{ outline:2px solid rgba(244,209,113,.7); outline-offset:1px; }
   @media (pointer:coarse){
-    .p3-zoom{ top:calc(var(--u)*34px); }
+    .p3-zoom{ bottom:calc(var(--u)*42px); }
     .p3-zoom button{ min-width:44px; min-height:38px; padding:calc(var(--u)*6px) calc(var(--u)*10px); }
     .p3-src select{ min-height:38px; }
   }
