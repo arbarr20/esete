@@ -279,6 +279,17 @@ h2{ margin:calc(var(--u)*24px) 0 0; font-family:var(--sans); font-weight:900; le
     font-family:var(--mono); font-size:calc(var(--u)*9.5px); letter-spacing:.1em;
     color:rgba(255,255,255,.78); text-shadow:0 1px 6px rgba(0,0,0,.85); pointer-events:none; }
   #p3Msg:empty{ display:none; }
+  /* Selector «Del sitio…» del slot: mismo trato que el del visor superior. */
+  .p3-src{ position:absolute; z-index:5; top:calc(var(--u)*8px); left:calc(var(--u)*8px); }
+  .p3-src[hidden]{ display:none; }
+  .p3-src select{ font-family:var(--mono); font-size:calc(var(--u)*9px); letter-spacing:.12em;
+    text-transform:uppercase; white-space:nowrap; color:rgba(155,211,233,.85);
+    background:rgba(4,14,28,.72); border:1px solid rgba(155,211,233,.18);
+    border-radius:calc(var(--u)*10px); padding:calc(var(--u)*3px) calc(var(--u)*7px);
+    outline:none; cursor:pointer; max-width:calc(var(--u)*150px); opacity:.78;
+    transition:opacity .16s ease, color .16s ease, border-color .16s ease; }
+  .p3-src select:hover, .p3-src select:focus-visible{ opacity:1; color:var(--gold); border-color:rgba(244,209,113,.45); }
+  .p3-src select option{ background:#001326; color:#DFF3FB; }
 </style>
 <script>window.__P3MODE__=(function(){try{var m=localStorage.getItem('esete:mode:slide-03');return (m==='both'||m==='world'||m==='photos')?m:null}catch(e){return null}})();</script>
 <style id="edStyle">
@@ -1531,6 +1542,32 @@ h2{ margin:calc(var(--u)*24px) 0 0; font-family:var(--sans); font-weight:900; le
   addEventListener('resize',size);
 
   /* Solo si hay un modelo guardado se arma el visor al abrir la lámina. */
+  /* ---- Modelos publicados junto al sitio, también en este slot ----
+     Mismo camino que el selector del visor superior: fetch relativo a la
+     lámina, arrayBuffer y loadBuffer con el buffer como copia a persistir.
+     Bajo file:// un fetch hermano lo bloquea CORS: ahí queda el .glb local. */
+  (function(){
+    if(!/^https?:$/.test(location.protocol)) return;
+    var wrap=document.createElement('div');
+    wrap.className='p3-src';
+    var sel=document.createElement('select');
+    sel.id='sSrc3';
+    sel.setAttribute('aria-label','Cargar un modelo publicado junto al sitio');
+    [['','Del sitio…'],['recursos/b206.glb','B206'],['recursos/engine.glb','Motor'],['recursos/tail.glb','Cola']].forEach(function(o){
+      var op=document.createElement('option'); op.value=o[0]; op.textContent=o[1]; sel.appendChild(op);
+    });
+    sel.addEventListener('change',function(){
+      var u=sel.value, n=u.split('/').pop(); if(!u) return;
+      msg('Bajando '+n+'…');
+      fetch(u).then(function(r){ if(!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(function(b){ loadBuffer(b,n,b); })
+        .catch(function(){ msg('No se pudo bajar '+n); })
+        .then(function(){ sel.value=''; });
+    });
+    wrap.appendChild(sel);
+    panel.appendChild(wrap);
+  })();
+
   try{ dbGet().then(function(rec){ if(rec&&rec.buffer) loadBuffer(rec.buffer,rec.name,null); }).catch(function(){}); }catch(e){}
 })();
 </script>
